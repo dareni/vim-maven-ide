@@ -1,10 +1,10 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Wed Jun  6 20:34:13 EST 2012
+" Last Change: Thu Jun  7 22:37:44 EST 2012
 " Version:     0.5
 "=============================================================================
-" See documentation in accompanying help file
+" See documentation in accompanying help file.
 " You may use this code in whatever way you see fit.
 
 "{{{ Project ------------------------------------------------------------------
