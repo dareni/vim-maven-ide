@@ -4,7 +4,7 @@ vim-maven-ide
 A maven plugin for vim.
 
 Features include:
-o Project tree for file navigation and environment context management.
+o Project tree for file navigation and environment context management.\
 o Quickfix for output of maven plugins compile,junit,checkstyle. 
 o Optional single source file compilation directly with javac.
 o Compilation is background via AsyncCommand.
