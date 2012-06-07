@@ -1,4 +1,4 @@
 vim-maven-ide
 =============
 
-A maven plugin for vim providing ide like features.
+A maven plugin for vim.
