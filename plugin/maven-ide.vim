@@ -1,7 +1,7 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Thu Jun  7 22:37:44 EST 2012
+" Last Change: Sun Aug 12 22:05:30 EST 2012
 " Version:     0.5
 "=============================================================================
 " See documentation in accompanying help file.
@@ -77,13 +77,18 @@ function! MvnGetProjectDir(projectLineNo) "{{{
     return ""
 endfunction; "}}} body }}}
 
-function! MvnInsertProjectTree() "{{{
-    if strlen(s:mvn_defaultProject) == 0
-        let s:mvn_defaultProject = matchstr(system("pwd"), "\\p\\+") 
+function! MvnInsertProjectTree(projPath) "{{{
+"a:projPath - non empty string turns off the prompt for unit test.
+    if strlen(a:projPath) > 0
+        let l:mvnProjectPath= a:projPath
+    else
+        if strlen(s:mvn_defaultProject) == 0
+            let s:mvn_defaultProject = matchstr(system("pwd"), "\\p\\+") 
+        endif
+        call inputsave()
+        let l:mvnProjectPath = input("Enter the maven project path:", s:mvn_defaultProject, "file")
+        call inputrestore()
     endif
-    call inputsave()
-    let l:mvnProjectPath = input("Enter the maven project path:", s:mvn_defaultProject, "file")
-    call inputrestore()
     if !isdirectory(l:mvnProjectPath)
         echo("Invalid Directory: ".l:mvnProjectPath)
         return
@@ -201,6 +206,9 @@ function! MvnCreateSingleProjectEntry(pomList, currentPom, prjTreeTxt,
     let l:projectPath = substitute(l:pomFile, "/pom.xml", "", "g")
     let l:projectName = matchstr(l:projectPath, "[^/]\\+.$") 
     let l:allExtList = extend(extend([], a:srcExtList), a:resrcExtList)
+
+    call s:MvnDefaultPrjLayoutVars()
+    call MvnExecuteFile(l:projectPath."/in.vim")
 
     call insert(a:prjTreeTxt, repeat(' ', a:indentCount).l:projectName."="
         \  .l:projectPath." CD=. in=in.vim filter=\"".a:fileFilter."\" {", a:prjIndx)
@@ -488,7 +496,9 @@ function! MvnBuildEnv(projectHomePath) "{{{
     endif
     echo("\nBuild env for ".l:projectHomePath.".")
     let l:newline = "let g:mvn_projectHome=\"".l:projectHomePath."\""
+    call s:MvnDefaultPrjLayoutVars()
     call MvnUpdateFile("in.vim", "mvn_projectHome", l:newline)
+    call MvnExecuteFile(l:projectHomePath."/in.vim")
 
     "Run 2 goals with a single invocation of maven. Get the effective pom and classpath.
     let l:mvnData = system("cd ".l:projectHomePath."; "
@@ -612,6 +622,16 @@ function! MvnBuildRunClassPath(mvnData) "{{{
         let s:mvn_errorString .= " MvnBuildRunClassPath():Failed on mvn dependency:build-classpath.".l:pos
     endif
     return l:clpath
+endfunction; "}}}
+
+function! MvnExecuteFile(filename) "{{{
+"execute script locally ie so script (s:) variables are set.
+    if filereadable(a:filename)
+        let l:lines = readfile(a:filename)
+        for line in l:lines
+            exec line
+        endfor
+    endif
 endfunction; "}}}
 
 function! MvnUpdateFile(filename, id, newline) "{{{
@@ -1597,6 +1617,60 @@ function! s:TestMvnIsInList(testR) "{{{ TestMvnIsInList
     let l:ret = MvnIsInList(['a', 'b', 'c'], "d")
     call a:testR.AssertEquals('MvnIsInList2: ', 0, l:ret)
 endfunction "}}} TestMvnIsInList
+function! s:TestEnvBuild(testR) "{{{ TestCustDirLayout
+"Test the generation of the project tree.
+    new
+    let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/test1"
+    let l:testProjDir = s:mvn_tmpdir."/mvn-ide-test"
+    call system("mkdir -p ".l:testProjDir)
+    call system("cp -a ".l:mvn_testPrj." ".l:testProjDir)
+    let l:testHome = l:testProjDir."/test1"
+    call MvnInsertProjectTree(l:testHome)
+    "Test with the custom in.vim configuration.
+    call a:testR.AssertEquals('Mvn src location: ',
+            \" srcMain=src/m/java {", getline(3))
+    call a:testR.AssertEquals('Mvn test src location: ',
+            \" srcTest=src/t/java {", getline(11))
+    call a:testR.AssertEquals('Mvn main resource location: ',
+            \" resrcMain=src/m/r {", getline(15))
+    call a:testR.AssertEquals('Mvn test resource location: ',
+            \" resrcTest=src/t/r {", getline(17))
+    call a:testR.AssertEquals('Sibling project identifiers: ',
+            \"#PROJECT_IDS={'test:test1:1.0':".
+            \" '/tmp/mvn-ide-test/test1'}", getline(20))
+    "Check the tag path configuration in in.vim, too hard to test the rest.
+    :2
+    let l:currentDir = getcwd()
+    exec 'cd '.l:testHome
+    call MvnBuildEnv(l:testHome)
+    exec 'cd '.l:currentDir
+    let l:inVimList = readfile(l:testHome.'/in.vim')
+    call a:testR.AssertEquals('Test in.vim tags',
+        \'let &tags="'.l:testHome.'/tags,'.g:mvn_javaSourceParentDir.
+        \'/junit-3.8.2-sources/tags,'.g:mvn_additionalJavaSourcePath.'/tags"',
+        \get(l:inVimList, 0))
+    call a:testR.AssertEquals('Test in.vim path',
+        \'let &path="'.l:testHome.'/src/m/java/**,'.g:mvn_javaSourceParentDir.
+        \'/junit-3.8.2-sources/**,'.g:mvn_additionalJavaSourcePath.'/**,'.
+        \l:testHome.'/src/t/java/**"',
+        \get(l:inVimList, 1))
+    call a:testR.AssertEquals('Test in.vim source path',
+        \'let g:mvn_javaSourcePath="'.l:testHome.'/src/m/java:'.g:mvn_javaSourceParentDir.
+        \'/junit-3.8.2-sources:'.g:mvn_additionalJavaSourcePath.'"',
+        \get(l:inVimList, 2))
+    call a:testR.AssertEquals('Test in.vim javadoc path',
+        \'let g:mvn_javadocPath="'.g:mvn_javadocParentDir.
+        \'/junit-3.8.2-javadoc:'.g:mvn_additionalJavadocPath.'"',
+        \get(l:inVimList, 3))
+    "g:vjde_lib_path ie classpath test difficult so test MvnGetJreRuntimeLib()
+    call a:testR.AssertEquals('Test MvnGetJreRuntimeLib()',
+        \1, filereadable(MvnGetJreRuntimeLib()))
+    call a:testR.AssertEquals('Test in.vim projectHome',
+        \'let g:mvn_projectHome="'.l:testHome.'"',
+        \get(l:inVimList, 5))
+    bd!
+    call system("rm -rf ".l:testHome)
+endfunction "}}} TestCustDirLayout
 function! MvnRunTests() "{{{ MvnRunTests
     let l:testR = s:TestRunner.New()
     "{{{ misc tests
@@ -1611,6 +1685,7 @@ function! MvnRunTests() "{{{ MvnRunTests
     "}}} plugin tests
     "{{{ Tree Build
     call s:TestProjTreeBuild(l:testR)
+    call s:TestEnvBuild(l:testR)
     "}}} Tree Build
     "{{{ MvnGetClassFromFilename
     let l:result = MvnGetClassFromFilename("/opt/proj/src/main/java/pack/age/Dummy.java")
@@ -1638,7 +1713,7 @@ map \sd :call MvnOpenJavaDoc(g:mvn_javadocPath) <RETURN>
 map \dd :call MvnDownloadJavadoc() <RETURN>
 map \ds :call MvnDownloadJavaSource() <RETURN>
 map \be :call MvnBuildEnvSelection() <RETURN>
-map \bp :call MvnInsertProjectTree() <RETURN>
+map \bp :call MvnInsertProjectTree("") <RETURN>
 map \bt :call MvnTagCurrentFile() <RETURN>
 map \fc :call MvnFindJavaClass() <RETURN>
 map \gs :call MvnFindInherits(expand("<cword>")) <RETURN>
@@ -1683,13 +1758,16 @@ if !exists('g:mvn_compilerVersion')
     let g:mvn_compilerVersion = '2.5'
 endif
 "{{{ Private Variables --------------------------------------------------------
-let s:mvn_projectMainSrc="src/main/java"
-let s:mvn_projectTestSrc="src/test/java"
-let s:mvn_projectMainClasses="target/classes"
-let s:mvn_projectTestClasses="target/test-classes"
-let s:mvn_projectMainResources="src/main/resources"
-let s:mvn_projectTestResources="src/test/resources"
-let s:mvn_projectMainWebapp="src/main/webapp"
+function! s:MvnDefaultPrjLayoutVars()
+    let s:mvn_projectMainSrc="src/main/java"
+    let s:mvn_projectTestSrc="src/test/java"
+    let s:mvn_projectMainClasses="target/classes"
+    let s:mvn_projectTestClasses="target/test-classes"
+    let s:mvn_projectMainResources="src/main/resources"
+    let s:mvn_projectTestResources="src/test/resources"
+    let s:mvn_projectMainWebapp="src/main/webapp"
+endfunction
+call s:MvnDefaultPrjLayoutVars()
 
 let s:mvn_kernel = matchstr(system("uname -s"), '\w\+')
 if s:mvn_kernel =~ "FreeBSD"

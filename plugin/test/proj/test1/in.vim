@@ -1,0 +1,7 @@
+let s:mvn_projectMainSrc="src/m/java"                                                                                                    
+let s:mvn_projectTestSrc="src/t/java"                                                                                                    
+let s:mvn_projectMainClasses="t/classes"                                                                                               
+let s:mvn_projectTestClasses="t/test-classes"                                                                                          
+let s:mvn_projectMainResources="src/m/r"                                                                                         
+let s:mvn_projectTestResources="src/t/r"                                                                                         
+let s:mvn_projectMainWebapp="src/main/webapp"
