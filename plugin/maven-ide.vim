@@ -70,7 +70,7 @@ function! MvnGetProjectDir(projectLineNo) "{{{
 "   line number.
 "{{{ body
     let l:line = getline(a:projectLineNo)
-    let l:projectDir = matchstr(l:line, '=\@<=\([/A-Za-z0-9_-]\+\)', 0, 1)
+    let l:projectDir = matchstr(l:line, '=\@<=\([/A-Za-z0-9._-]\+\)', 0, 1)
     if strlen(l:projectDir) > 0 && filereadable(l:projectDir."/pom.xml")
         return l:projectDir
     endif
