@@ -1502,7 +1502,7 @@ function! s:TestRunner.AssertEquals(failMessage, expected, result)
         let self.passCount += 1
     else
         let self.failCount += 1
-        let l:testResult = printf("%s",a:expected)." <> ".printf("%s",a:result)
+        let l:testResult = printf("%s","'".a:expected."'")." <> ".printf("'%s'",a:result)
         echo a:failMessage."\n\t".l:testResult
     endif
 endfunction
@@ -1610,7 +1610,7 @@ function! MvnRunTests() "{{{ MvnRunTests
     call s:TestJunitPlugin(l:testR)
     "}}} plugin tests
     "{{{ Tree Build
-    call s:TestProjTreeBuild(testR)
+    call s:TestProjTreeBuild(l:testR)
     "}}} Tree Build
     "{{{ MvnGetClassFromFilename
     let l:result = MvnGetClassFromFilename("/opt/proj/src/main/java/pack/age/Dummy.java")
@@ -1618,6 +1618,15 @@ function! MvnRunTests() "{{{ MvnRunTests
     "}}} MvnGetClassFromFilename
     call l:testR.PrintStats()
 endfunction; "}}} MvnRunTests
+function! MvnCallSingleTest(testFuncName) "{{{ MvnCallTest
+"Useful during test development.
+"a:testFuncName - a string containing the script function name of the test 
+"   function without the 's:' prefix. 
+    let l:testR = s:TestRunner.New()
+    let TestFun = function('s:'.a:testFuncName)
+    call TestFun(l:testR)
+    call l:testR.PrintStats()
+endfunction; "}}} MvnCallTest
 "}}} Tests --------------------------------------------------------------------
 
 "{{{ Key mappings -------------------------------------------------------------
