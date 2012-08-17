@@ -354,7 +354,99 @@ endfunction; "}}} 2
 "}}} tree build functions 
 
 "{{{ xml pom functions
-function! MvnGetPomDependencies(mvnData) "{{{ 2 
+function! MvnGetPomDetail(projectHomePath) "{{{
+"Build the environment for the consecutive project entries.
+    let l:mvnData = MvnGetPomFileData(a:projectHomePath)
+    let l:pomDict = MvnCreatePomDict(l:mvnData)
+    return l:pomDict
+endfunction; "}}}
+
+function! MvnGetPomFileData(projectHomePath) "{{{
+"run maven to collect classpath and effective pom data as a string.
+"{{{ body
+    let l:mvnData = system("cd ".a:projectHomePath."; "
+        \."mvn org.apache.maven.plugins:maven-dependency-plugin:2.4:build-classpath"
+        \." org.apache.maven.plugins:maven-help-plugin:2.1.1:effective-pom")
+    return l:mvnData
+endfunction; "}}} body }}}
+
+function! MvnCreatePomDict(mvnData, projectHome) "{{{ 2 
+"Hacked from MvnGetPomDependencies.
+"Extract all required config from the pom data.
+" 1) a list of dependencies for a maven project.
+" 2)
+"Return a list of dependency id's for a project in the form of:
+"  groupId:artifactId:version
+"{{{ 3
+    let pomDict = {}
+    let pomDict['created'] = localtime()
+    let pomDict['home'] = a:projectHome
+    let l:effectivePom = a:mvnData
+    let l:effectivePom = MvnTrimStringPre(l:effectivePom, "<project ")
+    let l:effectivePom = MvnTrimStringPost(l:effectivePom, "</project>")
+    let l:effectivePom = substitute(l:effectivePom, "\n", "", "g")
+    let l:pomFilename = s:mvn_tmpdir."/effective-pom.xml"
+    call writefile([l:effectivePom], l:pomFilename)
+    "dependency query
+    let l:dependencyQuery = "/project/dependencies/*"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:dependencyQuery)
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    let l:dependencyIdList = MvnGetDependencyIdList(l:nodeList)
+    let pomDict['dependencies'] = l:dependencyIdList
+    "source main query
+    let l:srcMainQuery = "/project/build/sourceDirectory/text\(\)"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:srcMainQuery)
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    if len(l:nodeList) != 1
+        throw "MvnCreatePomDict Error srcMain:".string(l:nodeList)
+    endif
+    let pomDict['srcMain'] = get(l:nodeList, 0)
+    "source test query
+    let l:srcTestQuery = "/project/build/testSourceDirectory/text\(\)"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:srcTestQuery)
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    if len(l:nodeList) != 1
+        throw "MvnCreatePomDict Error srcTest:".string(l:nodeList)
+    endif
+    let pomDict['srcTest'] = get(l:nodeList, 0)
+    "main class query
+    let l:classQuery = "/project/build/outputDirectory/text\(\)"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:classQuery)
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    if len(l:nodeList) != 1
+        throw "MvnCreatePomDict Error class:".string(l:nodeList)
+    endif
+    let pomDict['classMain'] = get(l:nodeList, 0)
+    "class test query
+    let l:classTestQuery = "/project/build/testOutputDirectory/text\(\)"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:classTestQuery)
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    if len(l:nodeList) != 1
+        throw "MvnCreatePomDict class test:".string(l:nodeList)
+    endif
+    let pomDict['classTest'] = get(l:nodeList, 0)
+    "resource main query
+    let l:resourceMainQ = "/project/build/resources/resource/directory/text\(\)"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:resourceMainQ)
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    if len(l:nodeList) != 1
+        throw "MvnCreatePomDict resource main:".string(l:nodeList)
+    endif
+    let pomDict['resrcMain'] = l:nodeList
+    "resource test query
+    let l:resourceTestQ = "/project/build/testResources/testResource/directory/text\(\)"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:resourceTestQ)
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    if len(l:nodeList) != 1
+        throw "MvnCreatePomDict resource test:".string(l:nodeList)
+    endif
+    let pomDict['resrcTest'] = l:nodeList
+
+    call delete(s:mvn_tmpdir."/effective-pom.xml")
+    return pomDict
+endfunction; "}}} 3 }}} 2
+
+function! MvnGetPomDependencies(mvnData) "{{{ 2
 "Build a list of dependencies for a maven project.
 "Return a list of dependency id's for a project in the form of:
 "  groupId:artifactId:version
@@ -1502,8 +1594,10 @@ function! s:TestRunner.AssertEquals(failMessage, expected, result)
         let self.passCount += 1
     else
         let self.failCount += 1
-        let l:testResult = printf("%s","'".a:expected."'")." <> ".printf("'%s'",a:result)
-        echo a:failMessage."\n\t".l:testResult
+        let l:testResult = printf("%s",
+            \"\n-EXPECTED ".string(a:expected)).
+            \"\n-GOT      ".printf("'%s'",string(a:result))
+        echo a:failMessage.l:testResult
     endif
 endfunction
 function! s:TestRunner.PrintStats()
@@ -1597,6 +1691,57 @@ function! s:TestMvnIsInList(testR) "{{{ TestMvnIsInList
     let l:ret = MvnIsInList(['a', 'b', 'c'], "d")
     call a:testR.AssertEquals('MvnIsInList2: ', 0, l:ret)
 endfunction "}}} TestMvnIsInList
+function! s:TestCreatePomDict(testR) "{{{ TestCreatePomDict
+    let l:testPrj = s:mvn_scriptDir."/plugin/test/proj/test1"
+    let l:mvnFileData = MvnGetPomFileData(l:testPrj)
+    let l:mvnPomDict =  MvnCreatePomDict(l:mvnFileData, l:testPrj)
+    let l:dependencies = l:mvnPomDict['dependencies']
+    call a:testR.AssertEquals('CreatePomDict home: ',
+        \l:testPrj, l:mvnPomDict['home'])
+    call a:testR.AssertEquals('CreatePomDict dependencies: ',
+            \['junit:junit:3.8.2'], l:dependencies)
+    call a:testR.AssertEquals('CreatePomDict srcMain: ',
+        \l:testPrj.'/src/m/java', l:mvnPomDict['srcMain'])  
+    call a:testR.AssertEquals('CreatePomDict srcTest: ',
+        \l:testPrj.'/src/t/java', l:mvnPomDict['srcTest'])  
+    call a:testR.AssertEquals('CreatePomDict classMain: ',
+        \l:testPrj.'/t/classes', l:mvnPomDict['classMain'])  
+    call a:testR.AssertEquals('CreatePomDict classTest: ',
+        \l:testPrj.'/t/test-classes', l:mvnPomDict['classTest'])  
+    call a:testR.AssertEquals('CreatePomDict resrcMain: ',
+        \[l:testPrj.'/src/m/r'], l:mvnPomDict['resrcMain'])  
+    call a:testR.AssertEquals('CreatePomDict resrcTest: ',
+        \[l:testPrj.'/src/t/r'], l:mvnPomDict['resrcTest'])  
+endfunction "}}} TestCreatePomDict
+function! s:TestMvnGetXPathFromTxt(testR) "{{{ TestMvnGetXPathFromTxt
+    let l:nodes = [] 
+    let l:rawnodes = MvnGetXPathFromTxt('<a><b><c>foo</c><c>bar</c></b></a>', '/a/b/*/text\(\)')
+    let l:nodes = MvnParseNodesToList(l:rawnodes)     
+    call a:testR.AssertEquals('MvnGetXPathFromTxt1: ', ['foo', 'bar'], l:nodes)
+endfunction "}}} TestMvnGetXPathFromTxt
+function! s:TestMvnGetXPath(testR) "{{{ TestMvnGetXPath
+    let l:nodes = [] 
+    let l:xmlFile = s:mvn_scriptDir."/plugin/test/xml/test.xml"
+    let l:rawnodes = MvnGetXPath(l:xmlFile, '/a/b/c/text\(\)')
+    let l:nodes = MvnParseNodesToList(l:rawnodes)     
+    call a:testR.AssertEquals('MvnGetXPathFromTxt1: ', ['foo', 'bar'], l:nodes)
+
+    let l:pomFilename = s:mvn_scriptDir."/plugin/test/xml/effective-pom.xml"
+    let l:srcMainQuery = "/project/build/sourceDirectory/text\(\)"
+    let l:rawNodeList = MvnGetXPath(l:pomFilename, l:srcMainQuery)
+    call a:testR.AssertEquals('MvnGetXPathFromPom1: ', 'Found 1',
+        \strpart(l:rawNodeList[0], 0, 7))
+    call a:testR.AssertEquals('MvnGetXPathFromPom2: ', '-- NODE --',
+        \l:rawNodeList[1])
+    call a:testR.AssertEquals('MvnGetXPathFromPom3: ',
+        \'/usr/home/daren/.vim/bundle/maven-ide/plugin/test/proj/test1/src/m/java',
+        \l:rawNodeList[2])
+    let l:nodeList = MvnParseNodesToList(l:rawNodeList)
+    call a:testR.AssertEquals('ParseSrcNodes: ',
+        \"/usr/home/daren/.vim/bundle/maven-ide/plugin/test/proj/test1/src/m/java",
+        \l:nodeList[0])
+
+endfunction "}}} TestMvnGetXPath 
 function! MvnRunTests() "{{{ MvnRunTests
     let l:testR = s:TestRunner.New()
     "{{{ misc tests
@@ -1609,13 +1754,18 @@ function! MvnRunTests() "{{{ MvnRunTests
     call s:TestCheckStylePlugin(l:testR)
     call s:TestJunitPlugin(l:testR)
     "}}} plugin tests
-    "{{{ Tree Build
+    "{{{ Tree/Env Build
     call s:TestProjTreeBuild(l:testR)
-    "}}} Tree Build
+    call s:TestCreatePomDict(l:testR)
+    "}}} Tree/Env Build
     "{{{ MvnGetClassFromFilename
     let l:result = MvnGetClassFromFilename("/opt/proj/src/main/java/pack/age/Dummy.java")
     call l:testR.AssertEquals('MvnTweakEnvForSrc fail:', "pack.age.Dummy", l:result)
     "}}} MvnGetClassFromFilename
+    "{{{ xml tests
+    call s:TestMvnGetXPath(l:testR)
+    call s:TestMvnGetXPathFromTxt(l:testR)
+    "}}} xml tests
     call l:testR.PrintStats()
 endfunction; "}}} MvnRunTests
 function! MvnCallSingleTest(testFuncName) "{{{ MvnCallTest
