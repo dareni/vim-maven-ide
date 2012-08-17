@@ -109,9 +109,9 @@ function! MvnInsertProjectTree() "{{{
     "Update the project id dictionary in the project.
     "This dictionary is used to include the source path of a project
     "in a dependant project (from MvnBuildEnv).
-    let l:dict = MvnGetLocalDependencyDict()
+    let l:dict = MvnGetLocalProjectsDict()
     call extend(l:dict, l:prjData.prjIdPath, "force")
-    call MvnSetLocalDependencyDict(l:dict)
+    call MvnSetLocalProjectsDict(l:dict)
 endfunction; "}}}
 
 function! MvnBuildProjectTree(pomList) "{{{
@@ -120,6 +120,8 @@ function! MvnBuildProjectTree(pomList) "{{{
 "Prompts for location of the maven project, default is pwd.
 "On completion use Project \R to populate with files.
 "return - a map {List prjTreeTxt, Dictionary prjIdPath}
+"   prjTreeTxt - a list containing the new text representing the project to
+"       display in the project tree.
 "   prjIdPath - key: project unique identifier, value: the project path.
 "{{{ body
     let l:prjTreeTxt = []
@@ -141,17 +143,25 @@ function! MvnBuildProjectTree(pomList) "{{{
 endfunction; "}}} body }}}
 
 "{{{ project local dependency dict
+function! MvnGetPomDetail(projectHomePath) "{{{
+"Build the environment for the consecutive project entries.
+    let l:mvnData = MvnGetPomFileData(a:projectHomePath)
+    let l:pomDict = MvnCreatePomDict(l:mvnData)
+    return l:pomDict
+endfunction; "}}}
+
 function! MvnUpdateProjectIdDict(projectPath, id) "{{{
 "TODO not used any more ?
 "Update the project file with the dependency id for the project
 "   ie the form of groupId:artifactId:version
-    let l:dict = MvnGetLocalDependencyDict()
+    let l:dict = MvnGetLocalProjectsDict()
     let l:dict[a:id] = a:projectPath
-    call MvnSetLocalDependencyDict(l:dict)
+    call MvnSetLocalProjectsDict(l:dict)
 endfunction; "}}}
 
-function! MvnGetLocalDependencyDict() "{{{
-"The current buffer must be the project file.
+function! MvnGetLocalProjectsDict() "{{{
+"The current buffer must be the project file. Return the dict object
+"if it exists else return an empty dict.
     let l:MARKER = '#PROJECT_IDS='
     let save_cursor = getpos(".")
     let l:dependsLineNo= search(l:MARKER)
@@ -165,8 +175,9 @@ function! MvnGetLocalDependencyDict() "{{{
     return l:dict
 endfunction; "}}}
 
-function! MvnSetLocalDependencyDict(dict) "{{{
-"The current buffer must be the project file.
+function! MvnSetLocalProjectsDict(dict) "{{{
+"The current buffer must be the project file. If the dict exists in the
+"project file overwrite it else just append it to the end of the file.
     let l:MARKER = '#PROJECT_IDS='
     let save_cursor = getpos(".")
     let l:dependsLineNo= search(l:MARKER)
@@ -197,6 +208,7 @@ function! MvnCreateSingleProjectEntry(pomList, currentPom, prjTreeTxt,
 "a:fileFilter - the extensions (ie txt,java...) as filters (ie *.txt,*.java)
 "a:indentCount - the indentation (number of spaces) for the tree text.
 "   Incrmented on each recursive call.
+"a:prjIdPath dict - key: project unique identifier, value: the project path.
 
     let l:pomFile = a:pomList[a:currentPom]
     let l:projectPath = substitute(l:pomFile, "/pom.xml", "", "g")
@@ -355,12 +367,6 @@ endfunction; "}}} 2
 "}}} tree build functions
 
 "{{{ xml pom functions
-function! MvnGetPomDetail(projectHomePath) "{{{
-"Build the environment for the consecutive project entries.
-    let l:mvnData = MvnGetPomFileData(a:projectHomePath)
-    let l:pomDict = MvnCreatePomDict(l:mvnData)
-    return l:pomDict
-endfunction; "}}}
 
 function! MvnGetPomFileData(projectHomePath) "{{{
 "run maven to collect classpath and effective pom data as a string.
@@ -654,7 +660,7 @@ endfunction; "}}}
 function! MvnGetLocalDependenciesList(mvnData) "{{{
 "Return a list of paths to local sibling projects depended on by this project.
     let l:dependencyList = MvnGetPomDependencies(a:mvnData)
-    let l:dependencyDict = MvnGetLocalDependencyDict()
+    let l:dependencyDict = MvnGetLocalProjectsDict()
     let l:localDependencyPath = []
     for dependency in l:dependencyList
         if has_key(l:dependencyDict, dependency)
