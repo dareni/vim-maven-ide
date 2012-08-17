@@ -1779,6 +1779,17 @@ function! MvnCallSingleTest(testFuncName) "{{{ MvnCallTest
 endfunction; "}}} MvnCallTest
 "}}} Tests --------------------------------------------------------------------
 
+"{{{ Coding -------------------------------------------------------------------
+function! MvnCodeFormat() "{{{ 2
+"Format the current file.
+"{{{ 3
+    let save_cursor = getpos(".")
+    "Remove all end of line spaces.
+    :1,$:s/ \+$//g
+    call setpos('.', save_cursor)
+endfunction; "}}} 3 }}} 2
+"}}} Coding -------------------------------------------------------------------
+
 "{{{ Key mappings -------------------------------------------------------------
 map \rm :call MvnCompile() <RETURN>
 map \rj :call MvnJavacCompile() <RETURN>
