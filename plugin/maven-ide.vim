@@ -80,6 +80,7 @@ endfunction; "}}} body }}}
 function! MvnInsertProjectTree(projPath) "{{{
 "Build the project tree text for a maven project.
 "a:projPath - non empty string turns off the prompt for unit test.
+    call MvnAssertProjectWindow()
     if strlen(a:projPath) > 0
         let l:mvnProjectPath= a:projPath
     else
@@ -388,6 +389,19 @@ function! MvnFilterToExtList(fileFilterList) "{{{ 2
 endfunction; "}}} 2
 "}}} tree build functions
 
+"{{{ project utils
+function! MvnAssertProjectWindow() "{{{
+"Check the current window is the project window.
+"{{{ body
+    if !exists('g:proj_running') 
+        throw "Is project running? Activate with ':Project'."
+    endif
+    if bufnr('%') != g:proj_running
+        throw "Please select the project window."
+    endif
+endfunction; "}}} body }}}
+"}}} project utils
+
 "{{{ xml pom functions
 function! MvnGetPomFileData(projectHomePath) "{{{
 "run maven to collect classpath and effective pom data as a string.
@@ -580,6 +594,7 @@ let s:mvn_errorString = ""
 function! MvnBuildEnvSelection() "{{{
 "Build the environment for the consecutive project entries.
 "{{{ body
+    call MvnAssertProjectWindow()
     let l:dirList = MvnGetProjectDirList("", 0)
     let l:currentDir = getcwd()
     let l:projectIdPomDict = MvnGetLocalProjectsDict()
@@ -1350,7 +1365,7 @@ endfunction; "}}}
 
 "{{{ Javadoc/Sources ----------------------------------------------------------
 function! MvnDownloadJavadoc() "{{{
-"Download the javadoc using maven
+"Download the javadoc using maven for the current project.
     let l:cmd = "mvn org.apache.maven.plugins:"
     let l:cmd .= "maven-dependency-plugin:2.1:"
     let l:cmd .= "resolve -Dclassifier=javadoc"
@@ -1358,7 +1373,7 @@ function! MvnDownloadJavadoc() "{{{
 endfunction; "}}}
 
 function! MvnDownloadJavaSource() "{{{
-"Download the dependency source using maven
+"Download the dependency source using maven for the current project.
     let l:cmd = "mvn org.apache.maven.plugins:"
     let l:cmd .= "maven-dependency-plugin:2.1:"
     let l:cmd .= "sources"
