@@ -28,7 +28,8 @@ function! MvnGetProjectDirList(projectCount, excludeSubProjects) "{{{
     endif
     if strlen(l:projectCount) == 0
         call inputsave()
-        let l:projectCount = input("Enter the project count:")
+        let l:projectCount = input("Enter the project count [empty: all"
+        \" projects from cursor to file end]:")
         call inputrestore()
     endif
     if strlen(l:projectCount) == 0
@@ -60,7 +61,6 @@ function! MvnGetProjectDirList(projectCount, excludeSubProjects) "{{{
             call cursor(l:projectLineNo + 1, l:save_cursor[2])
         endif
     endwhile
-
     call setpos('.', l:save_cursor)
     return l:projectDirList
 endfunction; "}}} body }}}
@@ -80,7 +80,7 @@ endfunction; "}}} body }}}
 function! MvnInsertProjectTree(projPath) "{{{
 "Build the project tree text for a maven project.
 "a:projPath - non empty string turns off the prompt for unit test.
-    call MvnAssertProjectWindow()
+    let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
     if strlen(a:projPath) > 0
         let l:mvnProjectPath= a:projPath
     else
@@ -110,23 +110,20 @@ function! MvnInsertProjectTree(projPath) "{{{
     call reverse(l:pomList) "Build the dependencies first.
 
     "Does all the work.
-    let l:projectIdPomDict = MvnGetLocalProjectsDict(l:mvnDict)
-    let l:prjData = MvnBuildProjectTree(l:pomList, l:projectIdPomDict)
-    call MvnSetLocalProjectsDict(l:projectIdPomDict)
+    let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
+    let l:prjData = MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
+    call MvnSetPrjIdPomDict(l:prjIdPomFilename, l:prjIdPomDict)
 
     "Insert the tree into current file (should be a project file).
     let l:insertPoint = line(".")
     call append(l:insertPoint, l:prjData)
 endfunction; "}}}
 
-function! MvnBuildProjectTree(pomList, projectIdPomDict) "{{{
+function! MvnBuildProjectTree(pomList, prjIdPomDict) "{{{
 "Build a Project directory tree maven style in the cursor position in the
 "current file. On completion use Project \R to populate with files.
 "a:pomList - build a project tree for each pom.xml in the list.
-"a:projectIdPomDict - Dict store for all projects in the tree, stored
-"in .vimprojects-mvnide.
-"   key: group:artifact:version
-"   value: a dict containing pom data.
+"a:prjIdPomDict - project configuration store, see MvnSetPrjIdPomDict().
 "return - a list containing the new text representing the project to
 "       display in the project tree.
 "{{{ body
@@ -142,78 +139,64 @@ function! MvnBuildProjectTree(pomList, projectIdPomDict) "{{{
     while l:currentPom < len(a:pomList)
         let l:currentPom = MvnCreateSingleProjectEntry(a:pomList, l:currentPom, l:prjTreeTxt,
             \ l:prjIndx, l:javaSrcExtList, l:javaResrcExtList, l:fileFilter, indentCount,
-            \ a:projectIdPomDict)
+            \ a:prjIdPomDict)
         let l:currentPom += 1
     endwhile
     return l:prjTreeTxt
 endfunction; "}}} body }}}
 
 "{{{ project pom/dependency dict
-function! MvnGetPomDetailDict(projectHomePath, projectIdPomDict) "{{{
-"Retrieve the dict containing required pom.xml data. Extract data from the
-"pom.xml if the projectIdPomDict[created] date < pom.xml modified date else
-"get it from the .vimprojects-mvnide file (see "MvnBuildProjectTree()).
-"Update the current .vimproject file and in.vim file.
+function! MvnGetPrjPomDict(projectHomePath, prjIdPomDict) "{{{
+"Retrieve the dict containing project layout data. Extract data from the
+"pom.xml and create the project pom dict(prjPomDict) if the prjPomDict[created]
+"date < pom.xml modified date else get the prjPomDict from the environment
+"file 'in.vim'.  Update the project in.vim file if the prjPomDict is recreated.
 "a:projectHomePath - the directory containing the pom.xml.
-"a:projectIdPomDict - see MvnBuildProjectTree().
-"return - a dict containing the pom data.
+"a:prjIdPomDict - master project configuration store, see MvnSetPrjIdPomDict().
+"return - prjPomDict containing the pom data.
     let l:doRecreate = 1
     let l:inVimFile = a:projectHomePath.'/in.vim'
-    let l:mvnDict = MvnGetVimInDict(l:inVimFile)
-    if has_key(l:mvnDict, 'created')
-        if l:mvnDict['created'] < getftime(a:projectHomePath.'/pom.xml')
+    let l:prjPomDict = MvnLoadPrjPomDict(l:inVimFile)
+    if has_key(l:prjPomDict, 'created')
+        if l:prjPomDict['created'] < getftime(a:projectHomePath.'/pom.xml')
             let l:doRecreate = 0
         endif
     endif
     if l:doRecreate == 1
         let l:mvnData = MvnGetPomFileData(a:projectHomePath)
-        let l:mvnDict = MvnCreatePomDict(l:mvnData, a:projectHomePath, l:mvnDict)
+        let l:prjPomDict = MvnCreatePomDict(l:mvnData, a:projectHomePath, l:prjPomDict)
         "Store in in.vim and the master project dict.
-        call MvnUpdateFile(l:inVimFile, 'g:mvn_projectDict',
-            \'let g:mvn_projectDict='.string(l:mvnDict))
-        let a:projectIdPomDict[l:mvnDict.id] = l:mvnDict
+        call MvnUpdateFile(l:inVimFile, 'g:mvn_prjPomDict',
+            \'let g:mvn_prjPomDict='.string(l:prjPomDict))
+        let a:prjIdPomDict[l:prjPomDict.id] = l:prjPomDict
     endif
-    return l:mvnDict
+    return l:prjPomDict
 endfunction; "}}}
 
-function! MvnUpdateProjectIdDict(pomDict) "{{{
-"Update the project file with the pom dict for the project.
-"   ie the form of groupId:artifactId:version
-    let l:dict = MvnGetLocalProjectsDict()
-    let l:dict[a:pomDict.id] = a:pomDict
-    call MvnSetLocalProjectsDict(l:dict)
+function! MvnGetPrjIdPomDict(filename) "{{{
+"a:filename - the location of the prjIdPomDict file.
+"return - prjIdPomDict, see MvnSetPrjIdPomDict().
+    let l:prjIdPomDict = {}
+    if filereadable(a:filename)
+        let l:lineList = readfile(a:filename)
+        if len(l:lineList) > 1
+            throw "PrjIdPomDict file:".a:filename." has incorrect line count:".
+            \len(l:lineList)."."
+        elseif len(l:lineList) == 1
+            if type(l:lineList[0]) == type({})
+                let l:prjIdPomDict = eval(l:lineList[0]
+            endif
+        endif
+    endif
+    return l:prjIdPomDict
 endfunction; "}}}
 
-function! MvnGetLocalProjectsDict() "{{{
-"The current buffer must be the project file. Return the dict object
-"if it exists else return an empty dict.
-"return - a dict containing dicts of all the projects the keys are
-"   the project ids.
-    let l:MARKER = '#PROJECT_IDS='
-    let save_cursor = getpos(".")
-    let l:dependsLineNo= search(l:MARKER)
-    call setpos('.', save_cursor)
-    let l:dict = {}
-    if l:dependsLineNo > 0
-        let l:dependLine = getline(l:dependsLineNo)
-        let l:dictStart = matchend(l:dependLine, l:MARKER)
-        let l:dict = eval(strpart(l:dependLine, l:dictStart))
-    endif
-    return l:dict
-endfunction; "}}}
-
-function! MvnSetLocalProjectsDict(dict) "{{{
-"The current buffer must be the project file. If the dict exists in the
-"project file overwrite it else just append it to the end of the file.
-    let l:MARKER = '#PROJECT_IDS='
-    let save_cursor = getpos(".")
-    let l:dependsLineNo= search(l:MARKER)
-    call setpos('.', save_cursor)
-    if l:dependsLineNo > 0
-        call setline(l:dependsLineNo, l:MARKER.string(a:dict))
-    else
-        call append(line('$'), l:MARKER.string(a:dict))
-    endif
+function! MvnSetPrjIdPomDict(filename, prjIdPomDict) "{{{
+"Write out the master project dict to disk.
+"a:prjIdPomDict - Dict store for all projects in the tree.
+"   key: groupId:artifactId:version - project unique identifier.
+"   value: a dict containing individual pom data ie prjPomDict.
+    call writefile([string(a:prjIdPomDict)], a:filename)
 endfunction; "}}}
 "}}} project pom/dependency dict
 
@@ -221,7 +204,7 @@ endfunction; "}}}
 "{{{ MvnCreateSingleProjectEntry
 function! MvnCreateSingleProjectEntry(pomList, currentPom, prjTreeTxt,
     \ prjIndx, srcExtList, resrcExtList, fileFilter, indentCount,
-    \ projectIdPomDict)
+    \ prjIdPomDict)
 "Build the tree structure into a:prjTreeTxt for the maven top level dirs:
 "   src/main/java, src/main/resources, src/main/webapp, src/test/java
 "   src/tset/resources. Recursively build subprojects.
@@ -235,12 +218,12 @@ function! MvnCreateSingleProjectEntry(pomList, currentPom, prjTreeTxt,
 "a:fileFilter - the extensions (ie txt,java...) as filters (ie *.txt,*.java)
 "a:indentCount - the indentation (number of spaces) for the tree text.
 "   Incrmented on each recursive call.
-"a:projectIdPomDict - see MvnBuildProjectTree().
+"a:prjIdPomDict - project configuration store, see MvnSetPrjIdPomDict().
     let l:pomFile = a:pomList[a:currentPom]
     let l:projectPath = substitute(l:pomFile, "/pom.xml", "", "g")
     let l:projectName = matchstr(l:projectPath, "[^/]\\+.$")
     let l:allExtList = extend(extend([], a:srcExtList), a:resrcExtList)
-    let l:mvnDict = MvnGetPomDetailDict(l:projectPath, a:projectIdPomDict)
+    let l:prjPomDict= MvnGetPrjPomDict(l:projectPath, a:prjIdPomDict)
 
     call insert(a:prjTreeTxt, repeat(' ', a:indentCount).l:projectName."="
         \  .l:projectPath." CD=. in=in.vim filter=\"".a:fileFilter."\" {", a:prjIndx)
@@ -252,17 +235,17 @@ function! MvnCreateSingleProjectEntry(pomList, currentPom, prjTreeTxt,
     endif
 
     "src main package dirs.
-    call MvnBuildTopLevelDirEntries("srcMain", l:projectPath, l:mvnDict.srcMain,
+    call MvnBuildTopLevelDirEntries("srcMain", l:projectPath, l:prjPomDict.srcMain,
         \ a:prjTreeTxt, a:prjIndx - 1, a:srcExtList, a:indentCount)
     call MvnBuildTopLevelDirEntries("webapp", l:projectPath, s:mvn_projectMainWebapp,
         \ a:prjTreeTxt, a:prjIndx - 1, l:allExtList, a:indentCount)
     "src test package dirs.
-    call MvnBuildTopLevelDirEntries("srcTest", l:projectPath, l:mvnDict.srcTest,
+    call MvnBuildTopLevelDirEntries("srcTest", l:projectPath, l:prjPomDict.srcTest,
         \ a:prjTreeTxt, a:prjIndx - 1, a:srcExtList, a:indentCount)
     "resource dirs.
-    call MvnBuildTopLevelDirEntries("resrcMain", l:projectPath, l:mvnDict.resrcMain[0],
+    call MvnBuildTopLevelDirEntries("resrcMain", l:projectPath, l:prjPomDict.resrcMain[0],
         \ a:prjTreeTxt, a:prjIndx - 1, a:resrcExtList, a:indentCount)
-    call MvnBuildTopLevelDirEntries("resrcTest", l:projectPath, l:mvnDict.resrcTest[0],
+    call MvnBuildTopLevelDirEntries("resrcTest", l:projectPath, l:prjPomDict.resrcTest[0],
         \ a:prjTreeTxt, a:prjIndx - 1, a:resrcExtList, a:indentCount)
 
     let l:currentPom = a:currentPom
@@ -274,7 +257,7 @@ function! MvnCreateSingleProjectEntry(pomList, currentPom, prjTreeTxt,
         if l:isChild
             let l:currentPom = MvnCreateSingleProjectEntry(a:pomList, l:currentPom + 1, a:prjTreeTxt,
                 \ a:prjIndx - 1, a:srcExtList, a:resrcExtList, a:fileFilter, a:indentCount + 1,
-                \ a:projectIdPomDict)
+                \ a:prjIdPomDict)
         endif
     endwhile
     return l:currentPom
@@ -390,15 +373,17 @@ endfunction; "}}} 2
 "}}} tree build functions
 
 "{{{ project utils
-function! MvnAssertProjectWindow() "{{{
+function! MvnGetPrjIdPomFilename() "{{{
 "Check the current window is the project window.
 "{{{ body
-    if !exists('g:proj_running') 
+    if !exists('g:proj_running')
         throw "Is project running? Activate with ':Project'."
     endif
     if bufnr('%') != g:proj_running
         throw "Please select the project window."
     endif
+    let l:prjIdPomFilename= bufname('%')."-mvn-ide"
+    return  l:prjIdPomFilename
 endfunction; "}}} body }}}
 "}}} project utils
 
@@ -412,19 +397,17 @@ function! MvnGetPomFileData(projectHomePath) "{{{
     return l:mvnData
 endfunction; "}}} body }}}
 
-function! MvnCreatePomDict(mvnData, projectHome, mvnDict) "{{{ 2
+function! MvnCreatePomDict(mvnData, projectHome, prjPomDict) "{{{ 2
 "Hacked from MvnGetPomDependencies.
 "Extract all required config from the pom data and cache in the dict.
 "a:mvnData the text from a maven invocation, see MvnGetPomFileData().
 "a:projectHome the directory containing pom.xml.
-"a:mvnDict a dict containing defaults read from in.vim.
+"a:prjPomDict a dict containing defaults read from in.vim.
 "   keys: id, created, home, classpath, dependencies, srcMain, srcTest,
 "   classMain, classTest, resrcMain, resrcTest.
-"Return a list of dependency id's for a project in the form of:
-"  groupId:artifactId:version
+"Return prjPomDict.
 "{{{ 3
-"TODO check if dict needs to be created.
-    let pomDict = a:mvnDict
+    let pomDict = a:prjPomDict
     let pomDict['created'] = localtime()
     let pomDict['home'] = a:projectHome
     let pomDict['classpath'] = MvnBuildRunClassPath(a:mvnData)
@@ -442,6 +425,8 @@ function! MvnCreatePomDict(mvnData, projectHome, mvnDict) "{{{ 2
     let l:nodeList = MvnParseNodesToList(l:rawNodeList)
     let l:dependencyIdList = MvnGetDependencyIdList(l:nodeList)
     let pomDict['dependencies'] = l:dependencyIdList
+    "TODO look at doing something with additional paths. We are only
+    "taking the first path and ignoring the rest.
     "source main query
     let pomDict['srcMain'] =  MvnGetStringsFromXPath(l:pomFilename,
         \"/project/build/sourceDirectory/text\(\)")[0]
@@ -528,9 +513,8 @@ function! MvnGetStringsFromXPath(xmlFile, query) "{{{ 2
 "{{{ 3
     let l:rawNodeList = MvnGetXPath(a:xmlFile, a:query)
     let l:nodeList = MvnParseNodesToList(l:rawNodeList)
-    if len(l:nodeList) != 1
-        throw "Expected non empty list for XPath:".a:query." Filename:".
-            \a:xmlFile
+    if len(l:nodeList) < 1
+        throw "No elements for ".a:query.". Check 'mvn clean install'."
     endif
     return l:nodeList
 endfunction; "}}} 3 }}} 2
@@ -590,30 +574,54 @@ endfunction; "}}} 3 }}} 2
 "}}} Project ------------------------------------------------------------------
 
 "{{{ Environment config -------------------------------------------------------
-let s:mvn_errorString = ""
+function! MvnRefreshPrjIdPomDict() "{{{
+"Refresh the master pom data cache for selected projects.
+"{{{ body
+    let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
+    let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
+    let l:dirList = MvnGetProjectDirList("", 0)
+    for dir in l:dirList
+        try
+            echo "Refresh ".dir."/in.vim"
+            let l:prjPomDict = MvnGetPrjPomDict(dir, l:prjIdPomDict)
+        catch /.*/
+            echo "MvnRefresPrjIdPomDict error processing".
+                \dir." ".v:exception." ".v:throwpoint
+        endtry
+    endfor
+    "TODO cycle through l:prjIdPomDict and remove non existant projects.
+    call MvnSetPrjIdPomDict(l:prjIdPomFilename, l:prjIdPomDict)
+endfunction; "}}} body }}}
+
 function! MvnBuildEnvSelection() "{{{
 "Build the environment for the consecutive project entries.
 "{{{ body
-    call MvnAssertProjectWindow()
+    let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
     let l:dirList = MvnGetProjectDirList("", 0)
-    let l:currentDir = getcwd()
-    let l:projectIdPomDict = MvnGetLocalProjectsDict()
+"    let l:currentDir = getcwd()
+    let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
     "echo("Calculate the jdk runtime library using java -verbose -h.")
     let l:jreLib = MvnGetJreRuntimeLib()
     for dir in l:dirList
-        exec 'cd '.dir
-        call MvnBuildEnv(dir, l:projectIdPomDict, l:jreLib)
+"        exec 'cd '.dir
+        try
+            call MvnBuildEnv(dir, l:prjIdPomDict, l:jreLib)
+        catch /.*/
+            echo "MvnBuildEnvSelection error processing".
+                \dir." ".v:exception." ".v:throwpoint
+        endtry
     endfor
-    exec 'cd '.l:currentDir
+    call MvnSetPrjIdPomDict(l:prjIdPomFilename, l:prjIdPomDict)
+"    exec 'cd '.l:currentDir
 endfunction; "}}} body }}}
 
-function! MvnBuildEnv(projectHomePath, projectIdPomDict, jreLib) "{{{
-"Build the project in.vim sourced on access to a file in the project. Environment generated:
-"g:vjde_lib_path, g:mvn_javadocPath, g:mvn_javaSourcePath, g:mvn_currentPrjDict, path, tags.
-"The paths include local project dependencies in the project file via the #PROJECT_IDS
-"stored at the bottom of the project file and maintained during MvnBuildProjectTree.
+function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
+"Build the project in.vim sourced on access to a file in the project.
+"Environment generated: g:vjde_lib_path, g:mvn_javadocPath,
+"    g:mvn_javaSourcePath, g:mvn_prjPomDict, path, tags.
+"The environment paths include local project dependencies from the
+"prjIdPomDict (see MvnSetPrjIdPomDict()).
 "{{{ body
-    let s:mvn_errorString = ""
     let l:projectHomePath = a:projectHomePath
     if strlen(l:projectHomePath) == 0
         let l:projectHomePath = MvnGetProjectHomeDir()
@@ -623,63 +631,57 @@ function! MvnBuildEnv(projectHomePath, projectIdPomDict, jreLib) "{{{
         endif
     endif
 
-    "TODO update in.vim
-    let l:mvnDict = MvnGetPomDetailDict(projectHomePath)
+    let l:prjPomDict = MvnGetPrjPomDict(projectHomePath, a:prjIdPomDict)
+    "let l:newline = "let g:mvn_prjPomDict=" . string(l:prjPomDict)
+    "call MvnUpdateFile(projectHomePath."/in.vim", "mvn_prjPomDict", l:newline)
 
     echo("\nBuild env for ".l:projectHomePath.".")
-    let l:newline = "let g:mvn_currentPrjDict=" . string(l:mvnDict)
-    call MvnUpdateFile("in.vim", "mvn_currentPrjDict", l:newline)
-
-    "echo("Calculate local project dependencies from mvn help:effective-pom.")
     "Get the maven local sibling dependencies for a project to add to the path instead of jars.
-
-    let l:siblingProjectIdList = MvnGetLocalDependenciesList(l:mvnDict.dependencies, a:projectIdPomDict)
-    let l:projectIdList = insert(l:siblingProjectIdList, l:mvnDict['id'])
-    "TODO replace l:projectDirList refs with l:projectIdList  also
-    "TODO as above -  let l:projectDirList = insert(l:siblingProjectDirs, l:projectHomePath)
+    let l:siblingProjectIdList = MvnGetLocalDependenciesList(l:prjPomDict.dependencies, a:prjIdPomDict)
+    let l:projectIdList = insert(l:siblingProjectIdList, l:prjPomDict['id'])
 
     "Create the runtime classpath for the maven project.
     "echo("Calculate the runtime classpath using mvn dependency:build-classpath.") 21sec
-    let l:mvnClassPath = l:mvnDict['classpath']
+    let l:mvnClassPath = l:prjPomDict['classpath']
     if strlen(l:mvnClassPath) == 0
-        echo("No classpath. ".s:mvn_errorString)
+        throw "No classpath."
         return
     endif
 
     "TODO remove projects in l:projectIdList from l:mvnClassPath
-    let l:projectRuntimeDirs = MvnGetPathsFromPrjDict(a:projectIdPomDict, l:projectIdList, 'classMain')
+    let l:projectRuntimeDirs = MvnGetPathsFromPrjDict(a:prjIdPomDict, l:projectIdList, 'classMain')
     "Add l:projectRuntimeDirs (target/classes) to the path ahead of l:mvnClassPath (the jars).
     let l:newline = "let g:vjde_lib_path=\"".l:projectRuntimeDirs.":".a:jreLib.":".l:mvnClassPath."\""
-    call MvnUpdateFile("in.vim", "vjde_lib_path", l:newline)
+    call MvnUpdateFile(projectHomePath."/in.vim", "vjde_lib_path", l:newline)
 
     "Install javadoc (if the jars exist) and create the path to the javadoc for the maven project.
     "echo("Unpack javadoc if downloaded and create javadoc path.")
     let l:javadocPath = MvnInstallArtifactByClassifier(g:mvn_javadocParentDir, l:mvnClassPath, "javadoc")
     let l:newline = "let g:mvn_javadocPath=\"".l:javadocPath.":".g:mvn_additionalJavadocPath."\""
-    call MvnUpdateFile("in.vim", "mvn_javadocPath", l:newline)
+    call MvnUpdateFile(projectHomePath."/in.vim", "mvn_javadocPath", l:newline)
 
     "Install java sources (if the jars exist) and create the path to the sources for the maven project.
     "echo("Unpack dependency source if downloaded and create source path.")
     let l:javaSourcePath = MvnInstallArtifactByClassifier(g:mvn_javaSourceParentDir, l:mvnClassPath, "sources")
     let l:javaSourcePath .= ":".g:mvn_additionalJavaSourcePath
-    let l:projectJavaSourcePath = MvnGetPathsFromPrjDict(a:projectIdPomDict, l:projectIdList, 'srcMain')
+    let l:projectJavaSourcePath = MvnGetPathsFromPrjDict(a:prjIdPomDict, l:projectIdList, 'srcMain')
     let l:allJavaSourcePath = l:projectJavaSourcePath . ":" . l:javaSourcePath
     let l:allJavaSourcePath = substitute(l:allJavaSourcePath, '::\+', ':', 'g')
     let l:newline = "let g:mvn_javaSourcePath=\"".l:allJavaSourcePath."\""
-    call MvnUpdateFile("in.vim", "mvn_javaSourcePath", l:newline)
+    call MvnUpdateFile(projectHomePath."/in.vim", "mvn_javaSourcePath", l:newline)
 
     "set path. Include test source to allow for quick fix of junit failures
     "ie during mvn clean install.
-    let l:srcPath = l:javaAllSourcePath . ':'.l:mvnDict['srcTest']
+    let l:srcPath = l:allJavaSourcePath . ':'.l:prjPomDict['srcTest']
     let l:path = MvnConvertToPath(l:srcPath)
     let l:newline = "let &path=\"".l:path."\""
-    call MvnUpdateFile("in.vim", "let &path=", l:newline)
+    call MvnUpdateFile(projectHomePath."/in.vim", "let &path=", l:newline)
 
     "echo("Build tag files for all available source files.")
-    let l:tagPath =  MvnBuildTags(l:javaSourcePath, l:projectIdList, [l:mvnDict['id']], a:projectIdPomDict)
+    let l:tagPath =  MvnBuildTags(l:javaSourcePath, l:projectIdList, [l:prjPomDict['id']], a:prjIdPomDict)
     let l:newline = "let &tags=\"".l:tagPath."\""
-    call MvnUpdateFile("in.vim", "tags", l:newline)
-    echo "MvnBuildEnv Complete. " . s:mvn_errorString
+    call MvnUpdateFile(projectHomePath."/in.vim", "tags", l:newline)
+    echo "MvnBuildEnv Complete - ". projectHomePath
 endfunction; "}}} body }}}
 
 function! MvnConvertToPath(javaSourcePath) "{{{
@@ -695,32 +697,32 @@ function! MvnConvertToPath(javaSourcePath) "{{{
     return l:path
 endfunction; "}}}
 
-function! MvnGetLocalDependenciesList(dependencyIdList, projectIdPomDict) "{{{
+function! MvnGetLocalDependenciesList(dependencyIdList, prjIdPomDict) "{{{
 "Return a list of maven ids of the local sibling projects depended on by
 "this project.
 "a:dependencyIdList - list of ids of the form groupId:artifactId:version.
-"a:projectIdPomDict - the dict of all sibling projects.
+"a:prjIdPomDict - the dict of all sibling projects.
     let l:localDependencyIdList = []
     for dependencyId in a:dependencyIdList
-        if has_key(a:projectIdPomDict, dependencyId)
-            call add(l:localDependencyIdList, a:projectIdPomDict[dependencyId])
+        if has_key(a:prjIdPomDict, dependencyId)
+            call add(l:localDependencyIdList, a:prjIdPomDict[dependencyId])
         endif
     endfor
     return l:localDependencyIdList
 endfunction; "}}}
 
-function! MvnGetPathsFromPrjDict(projectIdPomDict, idList, attribute) "{{{
-"Return a path by appending path a:attribute from a:projectIdPomDict for each
+function! MvnGetPathsFromPrjDict(prjIdPomDict, idList, attribute) "{{{
+"Return a path by appending path a:attribute from a:prjIdPomDict for each
 "project in a:idList.
-"a:projectIdPomDict see MvnBuildProjectTree()
+"a:prjIdPomDict - project configuration store, see MvnSetPrjIdPomDict().
 "a:idList - the list of project identifiers of form groupId:artifactId:varsion.
 "a:attribute - ie 'srcMain'
     let l:dirs = []
     for id in a:idList
-        if has_key(a:projectIdPomDict[id], attribute)
-            let l:dir = a:projectIdPomDict[id][attribute]
+        if has_key(a:prjIdPomDict[id], a:attribute)
+            let l:dir = a:prjIdPomDict[id][a:attribute]
             if len(l:dir) > 0
-                call add(l:dirs, )
+                call add(l:dirs, l:dir)
             endif
         endif
     endfor
@@ -754,7 +756,7 @@ function! MvnBuildRunClassPath(mvnData) "{{{
         let l:clpath = strpart(l:mavenClasspathOutput, l:pos, l:endPos-l:pos)
         let l:clpath = substitute(l:clpath, '\n', '', 'g')
     else
-        let s:mvn_errorString .= " MvnBuildRunClassPath():Failed on mvn dependency:build-classpath.".l:pos
+        throw "MvnBuildRunClassPath():Failed on mvn dependency:build-classpath.".l:pos
     endif
     return l:clpath
 endfunction; "}}}
@@ -790,20 +792,20 @@ function! MvnUpdateFile(filename, id, newline) "{{{
     call writefile(l:lines, a:filename)
 endfunction; "}}}
 
-function! MvnGetVimInDict(filename) "{{{
-"Return the project dict if it exists else empty dict.
+function! MvnLoadPrjPomDict(filename) "{{{
+"Return the project pom dict if it exists else empty dict.
 "a:filename the absolute filename of in.vim for the project.
-    let l:projectDict = {}
+    let l:prjPomDict= {}
     if filereadable(a:filename)
         let l:lines = readfile(a:filename)
-        let l:lineNo = match(l:lines, 'g:mvn_projectDict')
+        let l:lineNo = match(l:lines, 'g:mvn_prjPomDict')
         if l:lineNo >= 0
            let l:line = get(l:lines, l:lineNo)
-           let l:pos = matchend(l:line, 'g:mvn_projectDict.*=')
-           let l:projectDict = eval(strpart(l:line, l:pos))
+           let l:pos = matchend(l:line, 'g:mvn_prjPomDict.*=')
+           let l:prjPomDict= eval(strpart(l:line, l:pos))
         endif
     endif
-    return l:projectDict
+    return l:prjPomDict
 endfunction; "}}}
 "}}} Environment config -------------------------------------------------------
 
@@ -1227,19 +1229,19 @@ function! MvnTweakEnvForSrc(srcFile) "{{{
     let l:sourcePath = g:mvn_javaSourcePath
     let l:isTest = 0
     if match(a:srcFile, s:mvn_projectMainSrc) > 0
-        let l:targetDir= g:mvn_currentPrjDict['home']."/".s:mvn_projectMainClasses
-        let l:resourceDir = g:mvn_currentPrjDict['home']."/".s:mvn_projectMainResources
+        let l:targetDir= g:mvn_prjPomDict['home']."/".s:mvn_projectMainClasses
+        let l:resourceDir = g:mvn_prjPomDict['home']."/".s:mvn_projectMainResources
         if isdirectory(l:resourceDir)
             "TODO is this really needed? resources should already be included via
             "target/classes in g:vjde_lib_path
             let l:runClassPath .= l:resourceDir.":".l:runClassPath
         endif
     elseif match(a:srcFile, s:mvn_projectTestSrc) > 0
-        let l:targetDir= g:mvn_currentPrjDict['home']."/".s:mvn_projectTestClasses
-        let l:runClassPath = g:mvn_currentPrjDict['home']."/".s:mvn_projectTestClasses.":".l:runClassPath
+        let l:targetDir= g:mvn_prjPomDict['home']."/".s:mvn_projectTestClasses
+        let l:runClassPath = g:mvn_prjPomDict['home']."/".s:mvn_projectTestClasses.":".l:runClassPath
         "TODO same as above. resource should already be included in the classpath
-        let l:resourceDir = g:mvn_currentPrjDict['home']."/".s:mvn_projectTestResources
-        let l:sourcePath = g:mvn_currentPrjDict['home']."/".s:mvn_projectTestSrc.":".l:sourcePath
+        let l:resourceDir = g:mvn_prjPomDict['home']."/".s:mvn_projectTestResources
+        let l:sourcePath = g:mvn_prjPomDict['home']."/".s:mvn_projectTestSrc.":".l:sourcePath
         if isdirectory(l:resourceDir)
             let l:runClassPath .= l:resourceDir.":".l:runClassPath
         endif
@@ -1524,56 +1526,59 @@ function! MvnPickInherits()  "{{{
     endif
 endfunction; "}}} body }}}
 
-function! MvnGetTagFileDir(srcPath, mvnDict) "{{{
+function! MvnGetTagFileDir(srcPath, prjPomDict) "{{{
 "Return the tag filename for the source directory.
 "{{{ body
-    let l:tagFilename = ""
-    l:srcDir = a:mvnDict['srcMain']
-    let l:pos = matchend(a:srcPath, l:srcDir) + 1
-    if l:pos > 0
-        let l:tmpDir = strpart(a:srcPath, 0, l:pos - 1)
-        let l:tagFilename = l:tmpDir . "/tags"
-    else
-        l:srcPath = a:mvnDict['srcTest']
-        let l:pos = matchend(a:srcPath, l:srcPath) + 1
-        if l:pos > 0
-            let l:tmpDir = strpart(a:srcPath, 0, l:pos - 1)
-            let l:tagFilename = l:tmpDir . "/tags-t"
-        else
-            let l:tagFilename = a:srcPath."/tags"
+    let l:tagFilename = a:srcPath.'/tags'
+    if has_key(a:prjPomDict, 'home') && has_key(a:prjPomDict, 'srcMain')
+        let l:homeDir = a:prjPomDict['home']
+        let l:srcDir = a:prjPomDict['srcMain']
+        let l:pos = matchend(a:srcPath, l:srcDir)
+        if l:pos == len(a:srcPath)
+            let l:tagFilename = l:homeDir . "/tags"
+        elseif has_key(a:prjPomDict, 'srcTest')
+            let l:srcPath = a:prjPomDict['srcTest']
+            let l:pos = matchend(a:srcPath, l:srcPath)
+            if l:pos == len(a:srcPath)
+                let l:tagFilename = l:homeDir . "/tags-t"
+            endif
         endif
     endif
     return l:tagFilename
 endfunction; "}}} body }}}
 
-function! MvnBuildTags(srcPathList, srcProjIdList, tstProjIdList, projectIdPomDict) "{{{
+function! MvnBuildTags(srcPathList, srcProjIdList, tstProjIdList, prjIdPomDict ) "{{{
 "Build tag files for 3 different source types.
 "a:srcPathList a list of directories to tag.
 "a:srcProjIdList a list of project identifiers for tagging main source.
 "a:tstProjIdList a list of project identifiers for tagging test source.
-"a:projectIdPomDict the project dict, see MvnBuildProjectTree().
+"a:prjIdPomDict - project configuration store, see MvnSetPrjIdPomDict().
 "{{{ body
     let l:tagPath = ""
     for dir in split(a:srcPathList, ':')
         let l:tagfile = dir."/tags"
-        MvnCreateTagFile(l:tagfile, dir)
-        if l:skip == 0
-            if strlen(l:tagPath) > 0
-                let l:tagPath .= ","
-            endif
-            let l:tagPath .= l:tagfile
+        call MvnCreateTagFile(l:tagfile, dir)
+        if strlen(l:tagPath) > 0
+            let l:tagPath .= ","
         endif
-    endfor
-    for prjId in srcProjIdList
-        let l:srcDir = a:projectIdPomDict[prjId]['srcMain']
-        let l:tagfile = a:projectIdPomDict[prjId]['home'].'/tags'
-        MvnCreateTagFile(l:tagfile, l:srcDir)
         let l:tagPath .= l:tagfile
     endfor
-    for prjId in tstProjIdList
-        let l:srcDir = a:projectIdPomDict[prjId]['srcTest']
-        let l:tagfile = a:projectIdPomDict[prjId]['home'].'/tags-t'
-        MvnCreateTagFile(l:tagfile, l:srcDir)
+    for prjId in a:srcProjIdList
+        let l:srcDir = a:prjIdPomDict[prjId]['srcMain']
+        let l:tagfile = a:prjIdPomDict[prjId]['home'].'/tags'
+        call MvnCreateTagFile(l:tagfile, l:srcDir)
+        if strlen(l:tagPath) > 0
+            let l:tagPath .= ","
+        endif
+        let l:tagPath .= l:tagfile
+    endfor
+    for prjId in a:tstProjIdList
+        let l:srcDir = a:prjIdPomDict[prjId]['srcTest']
+        let l:tagfile = a:prjIdPomDict[prjId]['home'].'/tags-t'
+        call MvnCreateTagFile(l:tagfile, l:srcDir)
+        if strlen(l:tagPath) > 0
+            let l:tagPath .= ","
+        endif
         let l:tagPath .= l:tagfile
     endfor
     return l:tagPath
@@ -1581,7 +1586,7 @@ endfunction; "}}} body }}}
 
 function! MvnCreateTagFile(tagFilename, sourceDir) "{{{
     let l:cmd = s:mvn_tagprg." --fields=+m+i --recurse=yes ".
-    let l:cmd .= "-f ".a:tagFilename." ".a:sourceDir
+        \"-f ".a:tagFilename." ".a:sourceDir
     call system(l:cmd)
 endfunction; "}}}
 
@@ -1589,18 +1594,16 @@ function! MvnTagCurrentFile() "{{{
 "Build the tags for the current file and append to the tag file.
 "{{{ body
     let l:srcDir = expand("%:p:h")
-    if !exists("g:mvn_currentPrjDict['home']") || len(g:mvn_currentPrjDict['home']) == 0
-        throw "No g:mvn_currentPrjDict['home']."
+    if !exists("g:mvn_prjPomDict['home']") || len(g:mvn_prjPomDict['home']) == 0
+        throw "No g:mvn_prjPomDict['home']."
     endif
-    let l:tagFilename = MvnGetTagFileDir(l:srcDir, g:mvn_currentPrjDict)
-    if filewritable(l:tagFilename)
-        "Remove all existing tags for the file.
-        let l:cleanCmd ="( echo \"g^".expand("%:p")
-        let l:cleanCmd .="^d\" ; echo 'wq' ) | ex -s ".l:tagFilename
-        call system(l:cleanCmd)
-    endif
+    let l:tagFilename = MvnGetTagFileDir(l:srcDir, g:mvn_prjPomDict)
+    "Remove all existing tags for the file.
+    let l:cleanCmd ="( echo \"g^".expand("%:p")
+    let l:cleanCmd .="^d\" ; echo 'wq' ) | ex -s ".l:tagFilename
+    call system(l:cleanCmd)
     let l:cmd = s:mvn_tagprg." -a --fields=+m+i --recurse=yes ".
-    let l:cmd .= "-f ".l:tagFilename." ".expand("%:p")
+        \"-f ".l:tagFilename." ".expand("%:p")
     call system(l:cmd)
 endfunction; "}}} body }}}
 
@@ -1775,18 +1778,18 @@ endfunction "}}} TestCheckStylePlugin
 function! s:TestProjTreeBuild(testR) "{{{ TestProjTreeBuild
     let l:prjLocation= s:mvn_scriptDir.'/plugin/test/proj'
     let l:pomList = [l:prjLocation.'/test/pom.xml']
-    let l:projectIdPomDict = {}
-    let l:prjTreeTxt= MvnBuildProjectTree(l:pomList, l:projectIdPomDict)
+    let l:prjIdPomDict = {}
+    let l:prjTreeTxt= MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
     call a:testR.AssertEquals('TestProjTreeBuild ::', 2, len(l:prjTreeTxt))
-    "TODO add test for l:projectIdPomDict and in.vim.
+    "TODO add test for l:prjIdPomDict and in.vim.
 
-    let l:projectIdPomDict = {}
+    let l:prjIdPomDict = {}
     let l:pomList = [l:prjLocation.'/parent/pom.xml',
     \ l:prjLocation.'/parent/test1/pom.xml',
     \ l:prjLocation.'/parent/test2/pom.xml',
     \ l:prjLocation.'/parent/test3/pom.xml']
-    let l:result = MvnBuildProjectTree(l:pomList, l:projectIdPomDict)
-    "TODO add test for l:projectIdPomDict and in.vim.
+    let l:result = MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
+    "TODO add test for l:prjIdPomDict and in.vim.
     "call writefile(l:result.prjTreeTxt, '/tmp/mvn.txt')
 endfunction "}}} TestProjTreeBuild
 function! s:TestMvnIsInList(testR) "{{{ TestMvnIsInList
@@ -1841,7 +1844,7 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
     call a:testR.AssertEquals('Test MvnGetJreRuntimeLib()',
         \1, filereadable(MvnGetJreRuntimeLib()))
     call a:testR.AssertEquals('Test in.vim projectHome',
-        \'let g:mvn_currentPrjDict="'.{}.'"',
+        \'let g:mvn_prjPomDict="'.{}.'"',
         \get(l:inVimList, 5))
     "TODO test in.vim for the project id entry.
     bd!
@@ -1876,7 +1879,7 @@ function! s:TestGetPomDetailDict(testR) "{{{
     call system("mkdir -p ".l:testProjDir)
     call system("cp -a ".l:mvn_testPrj." ".l:testProjDir)
     let l:testHome = l:testProjDir."/test1"
-    call MvnGetPomDetailDict(l:testHome)
+    call MvnGetPrjPomDict(l:testHome)
 endfunction "}}}
 function! s:TestMvnGetXPathFromTxt(testR) "{{{ TestMvnGetXPathFromTxt
     let l:nodes = []
@@ -1914,7 +1917,7 @@ function! s:TestGetPomId(testR) "{{{ TestMvnGetPomId
 endfunction "}}} TestMvnGetPomId
 function! s:TestGetVimInDict(testR) "{{{ TestMvnVimInDict
     let l:invim= s:mvn_scriptDir."/plugin/test/test_in.vim"
-    let l:projectDict = MvnGetVimInDict(l:invim)
+    let l:projectDict = MvnLoadPrjPomDict(l:invim)
     call a:testR.AssertEquals('MvnVimInDict: ', {'id': 'test:test:1.0'}, l:projectDict)
 endfunction "}}} TestMvnGeVimInDictt
 function! MvnRunTests() "{{{ MvnRunTests
@@ -1967,10 +1970,12 @@ endfunction; "}}} 3 }}} 2
 "}}} Coding -------------------------------------------------------------------
 
 "{{{ Key mappings -------------------------------------------------------------
+map \cf :call MvnCodeFormat() <RETURN>
 map \rm :call MvnCompile() <RETURN>
 map \rj :call MvnJavacCompile() <RETURN>
 map \rd :call MvnDoDebug() <RETURN>
 map \rt :call MvnRunJunit() <RETURN>
+map \rp :call MvnRefreshPrjIdPomDict() <RETURN>
 map \sd :call MvnOpenJavaDoc(g:mvn_javadocPath) <RETURN>
 map \dd :call MvnDownloadJavadoc() <RETURN>
 map \ds :call MvnDownloadJavaSource() <RETURN>
@@ -1985,7 +1990,7 @@ map \ps :call MvnPickInherits() <RETURN>
 "{{{ Public Variables ---------------------------------------------------------
 set cfu=VjdeCompletionFun
 "let g:vjde_lib_path = generated into in.vim
-"let g:mvn_currentPrjDict = generated into in.vim
+"let g:mvn_prjPomDict = generated into in.vim
 "let g:mvn_javadocPath = generated into in.vim
 "let g:mvn_javaSourcePath = generated into in.vim
 
