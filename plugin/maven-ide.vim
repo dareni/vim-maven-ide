@@ -28,7 +28,7 @@ function! MvnGetProjectDirList(projectCount, excludeSubProjects) "{{{
     endif
     if strlen(l:projectCount) == 0
         call inputsave()
-        let l:projectCount = input("Enter the project count [empty: all"
+        let l:projectCount = input("Enter the project count [empty: all".
         \" projects from cursor to file end]:")
         call inputrestore()
     endif
@@ -41,6 +41,10 @@ function! MvnGetProjectDirList(projectCount, excludeSubProjects) "{{{
         echo("Error - Current line is not a project header!")
         return l:projectDirList
     endif
+    let l:onlyCountParents = 1
+    if 0 == match(getline(l:save_cursor[1]), "^\\s")
+        let l:onlyCountParents = 0
+    endif
 
     while !l:finish
         let l:projectLineNo = search(l:prjRegExp, 'Wc')
@@ -49,7 +53,9 @@ function! MvnGetProjectDirList(projectCount, excludeSubProjects) "{{{
         else
             let l:projectDir = MvnGetProjectDir(l:projectLineNo)
             if strlen(l:projectDir) > 0
-                if -1 == match(getline(l:projectLineNo), "^\\s")
+                if !l:onlyCountParents
+                    let l:counter += 1 "counting child and parents
+                elseif -1 == match(getline(l:projectLineNo), "^\\s")
                     let l:counter += 1 "is a parent
                 endif
                 if l:counter > l:projectCount && l:projectCount != -1
@@ -622,6 +628,7 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
 "The environment paths include local project dependencies from the
 "prjIdPomDict (see MvnSetPrjIdPomDict()).
 "{{{ body
+    let l:startTime = localtime()
     let l:projectHomePath = a:projectHomePath
     if strlen(l:projectHomePath) == 0
         let l:projectHomePath = MvnGetProjectHomeDir()
@@ -635,7 +642,7 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
     "let l:newline = "let g:mvn_prjPomDict=" . string(l:prjPomDict)
     "call MvnUpdateFile(projectHomePath."/in.vim", "mvn_prjPomDict", l:newline)
 
-    echo("\nBuild env for ".l:projectHomePath.".")
+    "echo("\nBuild env for ".l:projectHomePath.".")
     "Get the maven local sibling dependencies for a project to add to the path instead of jars.
     let l:siblingProjectIdList = MvnGetLocalDependenciesList(l:prjPomDict.dependencies, a:prjIdPomDict)
     let l:projectIdList = insert(l:siblingProjectIdList, l:prjPomDict['id'])
@@ -678,10 +685,10 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
     call MvnUpdateFile(projectHomePath."/in.vim", "let &path=", l:newline)
 
     "echo("Build tag files for all available source files.")
-    let l:tagPath =  MvnBuildTags(l:javaSourcePath, l:projectIdList, [l:prjPomDict['id']], a:prjIdPomDict)
+    let l:tagPath =  MvnBuildTags(l:prjPomDict['id'], l:javaSourcePath, l:projectIdList, a:prjIdPomDict)
     let l:newline = "let &tags=\"".l:tagPath."\""
     call MvnUpdateFile(projectHomePath."/in.vim", "tags", l:newline)
-    echo "MvnBuildEnv Complete - ". projectHomePath
+    echo "MvnBuildEnv Complete - ". projectHomePath. " ".eval(localtime() - l:startTime)."s"
 endfunction; "}}} body }}}
 
 function! MvnConvertToPath(javaSourcePath) "{{{
@@ -705,7 +712,9 @@ function! MvnGetLocalDependenciesList(dependencyIdList, prjIdPomDict) "{{{
     let l:localDependencyIdList = []
     for dependencyId in a:dependencyIdList
         if has_key(a:prjIdPomDict, dependencyId)
-            call add(l:localDependencyIdList, a:prjIdPomDict[dependencyId])
+            "TODO check if the dependencyId project actually exists.
+            "and if not delete it from prjIdPomDict
+            call add(l:localDependencyIdList, dependencyId)
         endif
     endfor
     return l:localDependencyIdList
@@ -718,14 +727,18 @@ function! MvnGetPathsFromPrjDict(prjIdPomDict, idList, attribute) "{{{
 "a:idList - the list of project identifiers of form groupId:artifactId:varsion.
 "a:attribute - ie 'srcMain'
     let l:dirs = []
-    for id in a:idList
-        if has_key(a:prjIdPomDict[id], a:attribute)
-            let l:dir = a:prjIdPomDict[id][a:attribute]
-            if len(l:dir) > 0
-                call add(l:dirs, l:dir)
+    try
+        for id in a:idList
+            if has_key(a:prjIdPomDict[id], a:attribute)
+                let l:dir = a:prjIdPomDict[id][a:attribute]
+                if len(l:dir) > 0
+                    call add(l:dirs, l:dir)
+                endif
             endif
-        endif
-    endfor
+        endfor
+    catch /.*/
+        throw "id=".string(id)." idList=".string(a:idList)." ".v:exception." ".v:throwpoint
+    endtry
     let l:dirPath = join(l:dirs, ":")
     return l:dirPath
 endfunction; "}}}
@@ -1247,8 +1260,7 @@ function! MvnTweakEnvForSrc(srcFile) "{{{
         endif
         let l:isTest = 1
     else
-        echo "Could not identify maven target directory / run classpath."
-        return -1
+        throw "Could not identify maven target directory / run classpath."
     endif
 
     call add(l:envList, l:runClassPath)
@@ -1547,40 +1559,52 @@ function! MvnGetTagFileDir(srcPath, prjPomDict) "{{{
     return l:tagFilename
 endfunction; "}}} body }}}
 
-function! MvnBuildTags(srcPathList, srcProjIdList, tstProjIdList, prjIdPomDict ) "{{{
-"Build tag files for 3 different source types.
+function! MvnBuildTags(currentPrjId, srcPathList, srcPrjIdList, prjIdPomDict ) "{{{
+"Build tag files for 3 different source types. Don't build the tag files for
+"sibling projects, just add the tag file to the path.
+"a:currentPrjId the id of the current project.
 "a:srcPathList a list of directories to tag.
-"a:srcProjIdList a list of project identifiers for tagging main source.
-"a:tstProjIdList a list of project identifiers for tagging test source.
+"a:srcPrjIdList a list of project identifiers for tagging main source.
 "a:prjIdPomDict - project configuration store, see MvnSetPrjIdPomDict().
 "{{{ body
     let l:tagPath = ""
     for dir in split(a:srcPathList, ':')
         let l:tagfile = dir."/tags"
-        call MvnCreateTagFile(l:tagfile, dir)
+        let l:isOldTag = 1
+        if filereadable(l:tagfile)
+            if getftime(l:tagfile) > getftime(dir)
+                let l:isOldTag = 0
+            endif
+        endif
+        if l:isOldTag
+            call MvnCreateTagFile(l:tagfile, dir)
+        endif
         if strlen(l:tagPath) > 0
             let l:tagPath .= ","
         endif
         let l:tagPath .= l:tagfile
     endfor
-    for prjId in a:srcProjIdList
+    for prjId in a:srcPrjIdList
         let l:srcDir = a:prjIdPomDict[prjId]['srcMain']
         let l:tagfile = a:prjIdPomDict[prjId]['home'].'/tags'
-        call MvnCreateTagFile(l:tagfile, l:srcDir)
+        if prjId == a:currentPrjId
+            call MvnCreateTagFile(l:tagfile, l:srcDir)
+        endif
         if strlen(l:tagPath) > 0
             let l:tagPath .= ","
         endif
         let l:tagPath .= l:tagfile
     endfor
-    for prjId in a:tstProjIdList
-        let l:srcDir = a:prjIdPomDict[prjId]['srcTest']
-        let l:tagfile = a:prjIdPomDict[prjId]['home'].'/tags-t'
+    if len(a:currentPrjId) > 0
+        let prjId = a:currentPrjId
+        let l:srcDir = a:prjIdPomDict[a:currentPrjId]['srcTest']
+        let l:tagfile = a:prjIdPomDict[a:currentPrjId]['home'].'/tags-t'
         call MvnCreateTagFile(l:tagfile, l:srcDir)
         if strlen(l:tagPath) > 0
             let l:tagPath .= ","
         endif
         let l:tagPath .= l:tagfile
-    endfor
+    endif
     return l:tagPath
 endfunction; "}}} body }}}
 
