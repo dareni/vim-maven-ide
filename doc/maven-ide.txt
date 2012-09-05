@@ -88,7 +88,7 @@ EXTERNAL SOFTWARE DEPENDENCIES
     o Install Exuberant Ctags. FreeBSD devel/ctags.
     o Install the perl xpath module.
         FreeBSD - textproc/p5-XML-XPath
-        Linux - libxml-xpath-perl
+        Linux - libxml-xpath-perl, aka perl-XML-path
 
 VIM PLUGIN DEPENDENCIES
     o Recommend the installation of pathogen to organise plugin installation.

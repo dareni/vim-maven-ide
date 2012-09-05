@@ -2110,9 +2110,16 @@ function! s:TestInstallJavadocFromSource(testR) "{{{
         \l:jdPath)
 
 endfunction; "}}}
+function! s:TestDependencies(dummy) "{{{
+    let l:xpathFile = glob("`which xpath`")  
+    if !filereadable(l:xpathFile)
+        throw "No xpath executable. Check maven-ide installation instructions."
+    endif
+endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
     let l:testR = s:TestRunner.New()
     "{{{ misc tests
+    call s:TestDependencies(l:testR)
     call s:TestMvnIsInList(l:testR)
     "}}} misc tests
     "{{{ plugin tests
