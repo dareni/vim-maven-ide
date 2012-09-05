@@ -1,2 +1,2 @@
 let s:test='test'
-let g:mvn_projectDict={'id': 'test:test:1.0'}
+let g:mvn_currentPrjDict={'id': 'test:test:1.0'}

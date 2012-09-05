@@ -1,4 +1,4 @@
-*maven-ide.txt*	For Vim version 7.x. Last Change: Wed Jun  6 20:30:20 EST 2012
+*maven-ide.txt*	For Vim version 7.x. Last Change: Sun Aug 12 22:06:35 EST 2012
 
 	Plugin for managing java maven projects.	
 
@@ -31,11 +31,14 @@ Features include:
     o Dependency source file and javadoc integration. Javadoc viewing uses
       lynx.
     o Exctags tag navigation.
+    o Extract the maven main (source, resources), test (source, resources)
+      directories from the project pom.xml.
     o Auto generation of project environment ie classpath, tag files.
     o Dependency management for maven parent/child/sibling projects extracted
       from project poms.
     o Autocomplete on methods, auto add of imports etc is via the vjde plugin
       project.
+	o Auto build of javadoc from source when it does not exist.
 
 ==============================================================================
 DEPENDENCIES 						*maven-ide-depends*
@@ -67,8 +70,6 @@ TODO 								*maven-ide-todo*
       values are printed in the jdb console, and dump of variables is
       directly via jdb.
     o Add multi thread debug support.
-    o Extract the maven main (source, resources), test (source, resources)
-      directories from the project pom.xml (currently hardcoded).
 	o Adjust mappings to the correct context.
 	o Add unit tests for all functionality in MvnRunTests().
 
@@ -190,7 +191,7 @@ In vim invoke the|project|plugin:
     :Project
 
 Create the maven project tree in the left window by invoking
-MvnInsertProjectTree() (mapped to \bp). The 3 key sequence must be
+|MvnInsertProjectTree()|(mapped to \bp). The 3 key sequence must be
 entered quickly (see|map.txt|timeout|leader|). A prompt will ask for the project
 path of an existing maven project:
 	\bp
@@ -224,38 +225,55 @@ MAPPINGS						    *maven-ide-mappings*
 
 Map	Function 							Context~
 
-\be MvnBuildEnvSelection()  			project buffer
-Build the environment file (in.vim) for the 'in='|project-syntax|. The
+\be *MvnBuildEnvSelection()* 			project buffer
+ a) Build the environment file (in.vim) for the 'in='|project-syntax|. The
 environment file is run on \e (setup environment |project-mappings|) or
 when a file is opened from the project buffer. On execution a prompt for
 the project count, collects the setting for the number of consecutive
 parent projects the environment will be built, starting from the cursor
-position in the project tree.
+position in the project tree. The 'in.vim' for a maven project contains
+the classpath, tag file path, java source, documentation paths and data
+extracted from the project maven pom.xml. The classpath and source
+path will use sibling projects from the tree. Sibling project data is
+cached in a file '.vimprojects-mvn-ide', stored at the location of the
+project .vimprojects file. See |project-invoking|. The 'in.vim' file is 
+maintained during |MvnBuildEnvSelection()|and|MvnInsertProjectTree()|execution.
+ b) Search local maven repo for javadoc and source artifacts for dependencies
+and unarchive to|mvn_javadocParentDir|,|mvn_javaSourceParentDir|directories.
+ c) Build tag files for source files, of maven project and dependency source
+but NOT dependency projects in the project tree ie sibling projects.
 
-\bp MvnInsertProjectTree()				project buffer
+\bp *MvnInsertProjectTree()*			project buffer
 At the cursor location in the project buffer, build the directory tree for
 the maven project. The maven project directory is specified at the prompt
 on execution. Files are not populated in the tree and are added with \R
-see|project-mapping|.
+see|project-mapping|. Directory file structure is extracted from the project
+maven pom.xml and cached in the 'in.vim'.
 
-\dd MvnDownloadJavadoc()  				project or source buffer
+\rp *MvnRefreshPrjIdPomDict()*          project buffer
+Extract the path data from pom.xml and cache in 'in.vim'.
+
+\dd *MvnDownloadJavadoc()*  			project or source buffer
 Download and install the javadoc dependencies into|mvn_javadocParentDir|
 directory. >
 
-\ds MvnDownloadJavaSource()				project or source buffer
+\ds *MvnDownloadJavaSource()* 			project or source buffer
 Download and install the java source dependencies into
 |mvn_javaSourceParentDir|directory. A \be must be run after \ds to include
 the new source in the project environment.
 
-\fc MvnFindJavaClass()					project or source buffer
+\fc *MvnFindJavaClass()* 				project or source buffer
 A prompt is given to enter a classname for search. The search is across all
 jar files in the maven .m2 repository.
 
-\rm MvnCompile() 		    			project or source buffer
+\rm *MvnCompile()* 						project or source buffer
 Compile current maven project (mvn clean install). The Apache compiler plugin
 version is fixed by|mvn_compilerVersion|setting.
 
-\rj MvnJavacCompile() 					source buffer	
+\cf *MvnMvnCodeFormat()* 				source buffer
+Remove end of line spaces.
+
+\rj *MvnJavacCompile()* 				source buffer	
 Direct invocation of javac for compilation of the current file ONLY. A time
 saving alternative to running a maven compile. Requires class dependencies
 in the target directory. ie do \rm first.
@@ -263,25 +281,25 @@ in the target directory. ie do \rm first.
 NOTE Compilations run in the background with|AsyncCommand|use <C-L> to
 refresh the screen, errors will display in a quickfix window.
 
-\rd MvnDoDebug() 						source buffer
+\rd *MvnDoDebug()* 						source buffer
 Run debug on the current main or junit test source file or connect to a
 preexisting debug process by port.
 
-\rt MvnRunJunit() 		    			source buffer
+\rt *MvnRunJunit()* 		    		source buffer
 Run the current junit source file, with quickfix for errors.
 
-\sd MvnOpenJavaDoc() 	    			project or source buffer
+\sd *MvnOpenJavaDoc()* 	    			project or source buffer
 Open in lynx the javadoc for the classname under the cursor. The full
 class name is determined using|vjde|.
 
-\bt MvnTagCurrentFile()					source buffer
+\bt *MvnTagCurrentFile()*				source buffer
 Update the tags for the current file.
 
-\gs MvnFindInherits()					source buffer
+\gs *MvnFindInherits()*					source buffer
 Search the tag files of the project for subclasses of the superclass under the
 cursor.
 
-\ps MvnPickInherits()					source buffer
+\ps *MvnPickInherits()*					source buffer
 Pick from the list of the previous MvnFindInherits() search.
 
 ==============================================================================

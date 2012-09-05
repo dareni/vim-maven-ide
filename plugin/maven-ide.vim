@@ -172,8 +172,8 @@ function! MvnGetPrjPomDict(projectHomePath, prjIdPomDict) "{{{
         let l:mvnData = MvnGetPomFileData(a:projectHomePath)
         let l:prjPomDict = MvnCreatePomDict(l:mvnData, a:projectHomePath, l:prjPomDict)
         "Store in in.vim and the master project dict.
-        call MvnUpdateFile(l:inVimFile, 'g:mvn_prjPomDict',
-            \'let g:mvn_prjPomDict='.string(l:prjPomDict))
+        call MvnUpdateFile(l:inVimFile, 'g:mvn_currentPrjDict',
+            \'let g:mvn_currentPrjDict='.string(l:prjPomDict))
         let a:prjIdPomDict[l:prjPomDict.id] = l:prjPomDict
     endif
     return l:prjPomDict
@@ -581,7 +581,7 @@ endfunction; "}}} 3 }}} 2
 
 "{{{ Environment config -------------------------------------------------------
 function! MvnRefreshPrjIdPomDict() "{{{
-"Refresh the master pom data cache for selected projects.
+"Refresh the prjPomDict for each selected project(s).
 "{{{ body
     let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
     let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
@@ -589,7 +589,8 @@ function! MvnRefreshPrjIdPomDict() "{{{
     for dir in l:dirList
         try
             echo "Refresh ".dir."/in.vim"
-            let l:prjPomDict = MvnGetPrjPomDict(dir, l:prjIdPomDict)
+            "the get does a refresh.
+            call MvnGetPrjPomDict(dir, l:prjIdPomDict)
         catch /.*/
             echo "MvnRefresPrjIdPomDict error processing".
                 \dir." ".v:exception." ".v:throwpoint
@@ -604,12 +605,10 @@ function! MvnBuildEnvSelection() "{{{
 "{{{ body
     let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
     let l:dirList = MvnGetProjectDirList("", 0)
-"    let l:currentDir = getcwd()
     let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
     "echo("Calculate the jdk runtime library using java -verbose -h.")
     let l:jreLib = MvnGetJreRuntimeLib()
     for dir in l:dirList
-"        exec 'cd '.dir
         try
             call MvnBuildEnv(dir, l:prjIdPomDict, l:jreLib)
         catch /.*/
@@ -618,15 +617,14 @@ function! MvnBuildEnvSelection() "{{{
         endtry
     endfor
     call MvnSetPrjIdPomDict(l:prjIdPomFilename, l:prjIdPomDict)
-"    exec 'cd '.l:currentDir
 endfunction; "}}} body }}}
 
 function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
 "Build the project in.vim sourced on access to a file in the project.
 "Environment generated: g:vjde_lib_path, g:mvn_javadocPath,
-"    g:mvn_javaSourcePath, g:mvn_prjPomDict, path, tags.
+"    g:mvn_javaSourcePath, g:mvn_currentPrjDict, path, tags.
 "The environment paths include local project dependencies from the
-"prjIdPomDict (see MvnSetPrjIdPomDict()).
+"a:prjIdPomDict (see MvnSetPrjIdPomDict()).
 "{{{ body
     let l:startTime = localtime()
     let l:projectHomePath = a:projectHomePath
@@ -639,8 +637,8 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
     endif
 
     let l:prjPomDict = MvnGetPrjPomDict(projectHomePath, a:prjIdPomDict)
-    "let l:newline = "let g:mvn_prjPomDict=" . string(l:prjPomDict)
-    "call MvnUpdateFile(projectHomePath."/in.vim", "mvn_prjPomDict", l:newline)
+    "let l:newline = "let g:mvn_currentPrjDict=" . string(l:prjPomDict)
+    "call MvnUpdateFile(projectHomePath."/in.vim", "mvn_currentPrjDict", l:newline)
 
     "echo("\nBuild env for ".l:projectHomePath.".")
     "Get the maven local sibling dependencies for a project to add to the path instead of jars.
@@ -655,27 +653,36 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
         return
     endif
 
-    "TODO remove projects in l:projectIdList from l:mvnClassPath
     let l:projectRuntimeDirs = MvnGetPathsFromPrjDict(a:prjIdPomDict, l:projectIdList, 'classMain')
     "Add l:projectRuntimeDirs (target/classes) to the path ahead of l:mvnClassPath (the jars).
     let l:newline = "let g:vjde_lib_path=\"".l:projectRuntimeDirs.":".a:jreLib.":".l:mvnClassPath."\""
     call MvnUpdateFile(projectHomePath."/in.vim", "vjde_lib_path", l:newline)
 
-    "Install javadoc (if the jars exist) and create the path to the javadoc for the maven project.
-    "echo("Unpack javadoc if downloaded and create javadoc path.")
-    let l:javadocPath = MvnInstallArtifactByClassifier(g:mvn_javadocParentDir, l:mvnClassPath, "javadoc")
-    let l:newline = "let g:mvn_javadocPath=\"".l:javadocPath.":".g:mvn_additionalJavadocPath."\""
-    call MvnUpdateFile(projectHomePath."/in.vim", "mvn_javadocPath", l:newline)
-
     "Install java sources (if the jars exist) and create the path to the sources for the maven project.
     "echo("Unpack dependency source if downloaded and create source path.")
-    let l:javaSourcePath = MvnInstallArtifactByClassifier(g:mvn_javaSourceParentDir, l:mvnClassPath, "sources")
+    let l:result = MvnInstallArtifactByClassifier(g:mvn_javaSourceParentDir, l:mvnClassPath, "sources")
+    let l:javaSourcePath = l:result[0]
+    let l:unavailableSource = l:result[1]
     let l:javaSourcePath .= ":".g:mvn_additionalJavaSourcePath
     let l:projectJavaSourcePath = MvnGetPathsFromPrjDict(a:prjIdPomDict, l:projectIdList, 'srcMain')
     let l:allJavaSourcePath = l:projectJavaSourcePath . ":" . l:javaSourcePath
     let l:allJavaSourcePath = substitute(l:allJavaSourcePath, '::\+', ':', 'g')
     let l:newline = "let g:mvn_javaSourcePath=\"".l:allJavaSourcePath."\""
     call MvnUpdateFile(projectHomePath."/in.vim", "mvn_javaSourcePath", l:newline)
+
+    "Install javadoc (if the jars exist) and create the path to the javadoc for the maven project.
+    "echo("Unpack javadoc if downloaded and create javadoc path.")
+    let l:result = MvnInstallArtifactByClassifier(g:mvn_javadocParentDir, l:mvnClassPath, "javadoc")
+    let l:javadocPath = l:result[0]
+    let l:unavailableJavadoc = l:result[1]
+    let l:jdFromSource = MvnInstallJavadocFromSource(g:mvn_javadocParentDir, g:mvn_javaSourceParentDir,
+            \l:unavailableJavadoc, l:unavailableSource)
+    if strlen(l:jdFromSource) > 0
+        let l:jdFromSource = ':'.l:jdFromSource
+    endif
+    let l:newline = "let g:mvn_javadocPath=\"".l:javadocPath.":".
+        \g:mvn_additionalJavadocPath.l:jdFromSource."\""
+    call MvnUpdateFile(projectHomePath."/in.vim", "mvn_javadocPath", l:newline)
 
     "set path. Include test source to allow for quick fix of junit failures
     "ie during mvn clean install.
@@ -690,6 +697,53 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
     call MvnUpdateFile(projectHomePath."/in.vim", "tags", l:newline)
     echo "MvnBuildEnv Complete - ". projectHomePath. " ".eval(localtime() - l:startTime)."s"
 endfunction; "}}} body }}}
+
+function! MvnClasspathPreen(projectIdList, mvnClasspath) "{{{
+"Return - the vim path from javaSourcePath.
+    let l:jarList = split(a:mvnClasspath, ':')
+    let l:idList = []
+    let l:preenedList = []
+    for name in l:jarList
+        if len(name) > 0
+            let l:id = MvnIdFromJarName(name)
+            if len(l:id) > 0
+                call add(l:idList, l:id)
+            else
+                call add(l:idList, '')
+            endif
+        endif
+    endfor
+    let l:idx = 0
+    for jarId in l:idList
+        let l:found = 0
+        if len(jarId) > 0
+            for prjId in a:projectIdList
+                if prjId == jarId
+                    let l:found = 1
+                endif
+            endfor
+        endif
+        if l:found == 0
+            call add(l:preenedList, l:jarList[l:idx])
+        endif
+        let l:idx += 1
+    endfor
+    return join(l:preenedList, ':')
+endfunction; "}}}
+
+function! MvnIdFromJarName(mvnClassFilename) "{{{
+"Return an id for the jar file from the maven repo path.
+    let l:id = ''
+    let l:pathElementList = split(a:mvnClassFilename, '/')
+    let l:size = len(l:pathElementList)
+    if l:size > 5
+        let l:versionId = l:pathElementList[l:size - 2]
+        let l:artifactId = l:pathElementList[l:size - 3]
+        let l:groupId = l:pathElementList[l:size - 4]
+        let l:id = l:groupId .':'. l:artifactId .':'. l:versionId
+    endif
+    return l:id
+endfunction; "}}}
 
 function! MvnConvertToPath(javaSourcePath) "{{{
 "Return - the vim path from javaSourcePath.
@@ -706,15 +760,19 @@ endfunction; "}}}
 
 function! MvnGetLocalDependenciesList(dependencyIdList, prjIdPomDict) "{{{
 "Return a list of maven ids of the local sibling projects depended on by
-"this project.
+"this project. Remove dependency projects from prjIdPomDict if they no
+"longer exist.
 "a:dependencyIdList - list of ids of the form groupId:artifactId:version.
 "a:prjIdPomDict - the dict of all sibling projects.
     let l:localDependencyIdList = []
     for dependencyId in a:dependencyIdList
         if has_key(a:prjIdPomDict, dependencyId)
-            "TODO check if the dependencyId project actually exists.
-            "and if not delete it from prjIdPomDict
-            call add(l:localDependencyIdList, dependencyId)
+            let l:prjPomDict = a:prjIdPomDict[dependencyId]
+            if isdirectory(l:prjPomDict['home'])
+                call add(l:localDependencyIdList, dependencyId)
+            else
+                call remove(l:prjIdPomDict, dependencyId)
+            endif
         endif
     endfor
     return l:localDependencyIdList
@@ -811,10 +869,10 @@ function! MvnLoadPrjPomDict(filename) "{{{
     let l:prjPomDict= {}
     if filereadable(a:filename)
         let l:lines = readfile(a:filename)
-        let l:lineNo = match(l:lines, 'g:mvn_prjPomDict')
+        let l:lineNo = match(l:lines, 'g:mvn_currentPrjDict')
         if l:lineNo >= 0
            let l:line = get(l:lines, l:lineNo)
-           let l:pos = matchend(l:line, 'g:mvn_prjPomDict.*=')
+           let l:pos = matchend(l:line, 'g:mvn_currentPrjDict.*=')
            let l:prjPomDict= eval(strpart(l:line, l:pos))
         endif
     endif
@@ -1242,19 +1300,19 @@ function! MvnTweakEnvForSrc(srcFile) "{{{
     let l:sourcePath = g:mvn_javaSourcePath
     let l:isTest = 0
     if match(a:srcFile, s:mvn_projectMainSrc) > 0
-        let l:targetDir= g:mvn_prjPomDict['home']."/".s:mvn_projectMainClasses
-        let l:resourceDir = g:mvn_prjPomDict['home']."/".s:mvn_projectMainResources
+        let l:targetDir= g:mvn_currentPrjDict['home']."/".s:mvn_projectMainClasses
+        let l:resourceDir = g:mvn_currentPrjDict['home']."/".s:mvn_projectMainResources
         if isdirectory(l:resourceDir)
             "TODO is this really needed? resources should already be included via
             "target/classes in g:vjde_lib_path
             let l:runClassPath .= l:resourceDir.":".l:runClassPath
         endif
     elseif match(a:srcFile, s:mvn_projectTestSrc) > 0
-        let l:targetDir= g:mvn_prjPomDict['home']."/".s:mvn_projectTestClasses
-        let l:runClassPath = g:mvn_prjPomDict['home']."/".s:mvn_projectTestClasses.":".l:runClassPath
+        let l:targetDir= g:mvn_currentPrjDict['home']."/".s:mvn_projectTestClasses
+        let l:runClassPath = g:mvn_currentPrjDict['home']."/".s:mvn_projectTestClasses.":".l:runClassPath
         "TODO same as above. resource should already be included in the classpath
-        let l:resourceDir = g:mvn_prjPomDict['home']."/".s:mvn_projectTestResources
-        let l:sourcePath = g:mvn_prjPomDict['home']."/".s:mvn_projectTestSrc.":".l:sourcePath
+        let l:resourceDir = g:mvn_currentPrjDict['home']."/".s:mvn_projectTestResources
+        let l:sourcePath = g:mvn_currentPrjDict['home']."/".s:mvn_projectTestSrc.":".l:sourcePath
         if isdirectory(l:resourceDir)
             let l:runClassPath .= l:resourceDir.":".l:runClassPath
         endif
@@ -1417,6 +1475,58 @@ function! MvnOpenJavaDoc(javadocPath) "{{{
     exec "!lynx ". l:javadocfile
 endfunction; "}}} body }}}
 
+function! MvnInstallJavadocFromSource(javadocParentDir, javaSourceParentDir,
+        \unavailableJavadoc, unavailableSource) "{{{
+"If the source exists build and install the javadoc.
+"a:javadocParentDir - the installation directory for javadoc.
+"a:javaSourceParentDir - the installation directory for source.
+"a:unavailableJavadoc - unavailable javadoc jar list.
+"a:unavailableSource - unavailable source jar list.
+    let l:javadocPath = ''
+    let l:srcToBuildList = []
+    "test if the source is available to build the javadoc
+    for javadocJar in a:unavailableJavadoc
+        let l:tmpSrcJarName = substitute(javadocJar, "-javadoc.jar", "-sources.jar", "")
+        let l:unavailable = 0
+        for l:srcJarName in a:unavailableSource
+            let l:unavailable = 0
+            if l:srcJarName == l:tmpSrcJarName
+                let l:unavailable = 1
+            endif
+        endfor
+        if l:unavailable == 0
+            call add(l:srcToBuildList, l:tmpSrcJarName)
+        endif
+    endfor
+    "build javadoc from the source
+    for srcJarName in l:srcToBuildList
+        let l:dirName = MvnGetArtifactDirName(srcJarName, "sources")
+        let l:newJavadocDir = a:javadocParentDir.'/'.l:dirName
+        if !isdirectory(l:newJavadocDir)
+            "find the package names in the source directory
+            let l:findCmd = '`find '.a:javaSourceParentDir.'/'.l:dirName.
+                \' -maxdepth 1 -type d -print`'
+            let l:dirs = glob(l:findCmd)
+            let l:dirList = split(l:dirs, '\n')
+            let l:subpackages = ''
+            for dir in l:dirList
+                let dirPathList = split(dir, '/')
+                let l:name = dirPathList[len(dirPathList)-1]
+                let l:subpackages .= ' -subpackages '.l:name
+            endfor
+            let l:cmd = 'javadoc -linksource -sourcepath '.a:javaSourceParentDir.
+                \'/'.l:dirName.' -d '.l:newJavadocDir.
+                \l:subpackages
+            call system(l:cmd)
+         endif
+         if len(l:javadocPath) > 0
+             let l:javadocPath .= ':'
+         endif
+         let l:javadocPath .= l:newJavadocDir
+    endfor
+    return l:javadocPath
+endfunction; "}}}
+
 function! MvnInstallArtifactByClassifier(artifactPathParent, classJarLibPath, artifactType) "{{{
 "Take the path to class jars and locate the associated artifact jars.
 "Unpack the artifact jar for the class jars(if they exist) in the artifactPathParent.
@@ -1426,10 +1536,14 @@ function! MvnInstallArtifactByClassifier(artifactPathParent, classJarLibPath, ar
 "classJarLibPath - the class path containing class jars for which the associated
 "  artifact type will be extracted.
 "artifactType - javadoc or sources
-"return - the directory list of the existing and newly extracted artifact jars.
+"return list
+"   [0] - a path of directories  of the existing and newly extracted artifact jars.
+"   [1] - a list of the unavailable artifact jars.
 "{{{ body
-    let l:artifactJarList = MvnGetArtifactJarList(a:classJarLibPath, a:artifactType)
-    let l:artifactDirList = MvnGetArtifactDirList(l:artifactJarList, a:artifactPathParent)
+    let l:jarListList = MvnGetArtifactJarList(a:classJarLibPath, a:artifactType)
+    let l:artifactJarList = jarListList[0]
+    let l:unavailableJarList = jarListList[1]
+    let l:artifactDirList = MvnGetArtifactDirList(l:artifactJarList, a:artifactPathParent, a:artifactType)
     let l:indx = 0
     let l:artifactPath = ""
     for dirname in l:artifactDirList
@@ -1445,7 +1559,7 @@ function! MvnInstallArtifactByClassifier(artifactPathParent, classJarLibPath, ar
         let l:artifactPath .= dirname
         let l:indx += 1
     endfor
-    return l:artifactPath
+    return [l:artifactPath, l:unavailableJarList]
 endfunction; "}}} body }}}
 
 function! MvnGetArtifactJarList(jarClassLibPath, artifactType) "{{{
@@ -1453,47 +1567,54 @@ function! MvnGetArtifactJarList(jarClassLibPath, artifactType) "{{{
 "  artifactType, if they exist.
 "jarClassLibPath - pass g:vjde_lib_path
 "artifactType - ie sources, javadoc
-"return - a list of jars of the requested artifactType.
+"return - a list of 2 lists.
+"   [0] a list of jars of the requested artifactType.
+"   [1] a list of the unavailable jars.
 "{{{ body
 "replaced by split   let l:binJarList = MvnGetListFromString(a:jarClassLibPath, ":")
     let l:binJarList = split(a:jarClassLibPath, ":")
     let l:indx = 0
     let l:artifactFileList= []
+    let l:unavailableFileList = []
     for jar in l:binJarList
         if stridx(jar, ".jar") > 0
             let l:artifactFileName=  substitute(l:jar, ".jar$", "-".a:artifactType.".jar", "")
             let l:artifactFile = findfile(l:artifactFileName, "/")
             if strlen(l:artifactFile) > 0
                 call add(l:artifactFileList, l:artifactFileName)
+            else
+                call add(l:unavailableFileList, l:artifactFileName)
             endif
         endif
         let l:indx += 1
     endfor
-    return l:artifactFileList
+    return [l:artifactFileList, l:unavailableFileList]
 endfunction; "}}} body }}}
 
-function! MvnGetArtifactDirList(jarList, parentArtifactDir) "{{{
+function! MvnGetArtifactDirList(jarList, parentArtifactDir, artifactType) "{{{
 "For a list of artifact jars, create a list of the names of directories
 "  to extract them into.
-"jarList - list of absolute names for artifact jars.
-"parentArtifactDir - the parent directory of the extracted artifacts.
+"a:jarList - list of absolute names for artifact jars.
+"a:parentArtifactDir - the parent directory of the extracted artifacts.
+"a:artifactType - ie sources, javadoc
 "return - list of absolute directories to extract the artifact into.
 "{{{ body
     let l:dirList = []
     for jar in a:jarList
-        let l:dirName = MvnGetArtifactDirName(l:jar)
+        let l:dirName = MvnGetArtifactDirName(l:jar, a:artifactType)
         call add(l:dirList, a:parentArtifactDir . "/" . l:dirName)
     endfor
     return l:dirList
 endfunction; "}}} body }}}
 
-function! MvnGetArtifactDirName(jarFilename) "{{{
+function! MvnGetArtifactDirName(jarFilename, artifactType) "{{{
 "For a jar file, create a simple directory name by stripping path and extension.
-"jarFilename - absolute filename of a javadoc/sources jar.
+"a:jarFilename - absolute filename of a javadoc/sources jar.
+"a:artifactType - ie sources, javadoc
 "return - a simple directory name.
 "{{{ body
     let l:jarName = matchstr(a:jarFilename, "[^/]\\+jar$")
-    let l:jarDir = substitute(l:jarName, ".jar$", "", "")
+    let l:jarDir = substitute(l:jarName, "-".a:artifactType.".jar$", "", "")
     return l:jarDir
 endfunction; "}}} body }}}
 
@@ -1618,10 +1739,10 @@ function! MvnTagCurrentFile() "{{{
 "Build the tags for the current file and append to the tag file.
 "{{{ body
     let l:srcDir = expand("%:p:h")
-    if !exists("g:mvn_prjPomDict['home']") || len(g:mvn_prjPomDict['home']) == 0
-        throw "No g:mvn_prjPomDict['home']."
+    if !exists("g:mvn_currentPrjDict['home']") || len(g:mvn_currentPrjDict['home']) == 0
+        throw "No g:mvn_currentPrjDict['home']."
     endif
-    let l:tagFilename = MvnGetTagFileDir(l:srcDir, g:mvn_prjPomDict)
+    let l:tagFilename = MvnGetTagFileDir(l:srcDir, g:mvn_currentPrjDict)
     "Remove all existing tags for the file.
     let l:cleanCmd ="( echo \"g^".expand("%:p")
     let l:cleanCmd .="^d\" ; echo 'wq' ) | ex -s ".l:tagFilename
@@ -1716,14 +1837,22 @@ function! s:TestRunner.New() "{{{
 endfunction "}}}
 function! s:TestRunner.AssertEquals(failMessage, expected, result) "{{{
     let self.testCount += 1
-    if a:expected == a:result
-        let self.passCount += 1
-    else
+    let l:fail = 1
+    if type(a:expected) == type("")
+        if string(a:expected) == string(a:result)
+            let l:fail = 0
+        endif
+    elseif a:expected == a:result
+        let l:fail = 0
+    endif
+    if l:fail
         let self.failCount += 1
         let l:testResult = printf("%s",
             \"\n-EXPECTED ".string(a:expected)).
             \"\n-GOT      ".printf("'%s'",string(a:result))
         echo a:failMessage.l:testResult
+    else
+        let self.passCount += 1
     endif
 endfunction "}}}
 function! s:TestRunner.PrintStats() "{{{
@@ -1857,7 +1986,7 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
         \l:testHome.'/src/t/java/**"',
         \get(l:inVimList, 1))
     call a:testR.AssertEquals('Test in.vim source path',
-        \'let g:mvn_javaSourcePath="'.l:testHome.'/src/m/java:'.g:mvn_javaSourcePar
+        \'let g:mvn_javaSourcePath="'.l:testHome.'/src/m/java:'.g:mvn_javaSourceParent.
         \'/junit-3.8.2-sources:'.g:mvn_additionalJavaSourcePath.'"',
         \get(l:inVimList, 2))
     call a:testR.AssertEquals('Test in.vim javadoc path',
@@ -1868,7 +1997,7 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
     call a:testR.AssertEquals('Test MvnGetJreRuntimeLib()',
         \1, filereadable(MvnGetJreRuntimeLib()))
     call a:testR.AssertEquals('Test in.vim projectHome',
-        \'let g:mvn_prjPomDict="'.{}.'"',
+        \'let g:mvn_currentPrjDict="'.{}.'"',
         \get(l:inVimList, 5))
     "TODO test in.vim for the project id entry.
     bd!
@@ -1932,7 +2061,6 @@ function! s:TestMvnGetXPath(testR) "{{{ TestMvnGetXPath
     call a:testR.AssertEquals('ParseSrcNodes: ',
         \"/usr/home/daren/.vim/bundle/maven-ide/plugin/test/proj/test1/src/m/java",
         \l:nodeList[0])
-
 endfunction "}}} TestMvnGetXPath
 function! s:TestGetPomId(testR) "{{{ TestMvnGetPomId
     let l:effectivePom = s:mvn_scriptDir."/plugin/test/xml/effective-pom.xml"
@@ -1943,7 +2071,45 @@ function! s:TestGetVimInDict(testR) "{{{ TestMvnVimInDict
     let l:invim= s:mvn_scriptDir."/plugin/test/test_in.vim"
     let l:projectDict = MvnLoadPrjPomDict(l:invim)
     call a:testR.AssertEquals('MvnVimInDict: ', {'id': 'test:test:1.0'}, l:projectDict)
-endfunction "}}} TestMvnGeVimInDictt
+endfunction "}}}
+function! s:TestIdFromJarName(testR) "{{{
+    let l:testJarName = '/.m2/repository/org/dbunit/dbunit/2.4.2/dbunit-2.4.2.jar'
+    let l:id = MvnIdFromJarName(l:testJarName)
+    call a:testR.AssertEquals('MvnIdFromJarName: ', 'dbunit:dbunit:2.4.2', l:id)
+endfunction "}}}
+function! s:TestClasspathPreen(testR) "{{{
+   let l:testCP= '/.m2/repository/org/dbunit/dbunit/2.4.2/dbunit-2.4.2.jar:/foobar.jar'
+   let l:preened = MvnClasspathPreen(['dbunit:dbunit:2.4.2'], l:testCP)
+   call a:testR.AssertEquals('ClasspathPreen: ', '/foobar.jar', l:preened)
+endfunction; "}}}
+function! s:TestInstallJavadocFromSource(testR) "{{{
+    :let s:mvn_tmpdir = "/tmp"
+    "test the find command
+    let l:findCmd = "`find ".s:mvn_scriptDir."/plugin/test/javadoc/src/mvn-ide-test".
+        \" -maxdepth 1 -type d -print`"
+    let l:dirs = glob(l:findCmd)
+    let l:dirList = split(l:dirs, '\n')
+    let l:subDirs = []
+    for dir in l:dirList
+        let l:segList = split(dir, '/')
+        call add(l:subDirs, l:segList[len(l:segList)-1])
+    endfor
+    call a:testR.AssertEquals('MvnInstallJavadoc test find: ', ['mvn-ide-test', 'mvnidetest', 'META-INF'], l:subDirs)
+
+    for dir in l:dirList
+        let dirPathList = split(dir, '/')
+        let l:name = dirPathList[len(dirPathList)-1]
+        call add(l:subDirs, l:name)
+    endfor
+    "test the build of javadoc
+    call system('mkdir -p '. s:mvn_tmpdir.'/mvn-ide-test/javadoc')
+    let l:jdPath = MvnInstallJavadocFromSource(s:mvn_tmpdir.'/mvn-ide-test/javadoc',
+        \s:mvn_scriptDir.'/plugin/test/javadoc/src',
+        \['/blah/blah/mvn-ide-test-sources.jar'], [])
+    call a:testR.AssertEquals('MvnInstallJavadoc: ', s:mvn_tmpdir.'/mvn-ide-test/javadoc/mvn-ide-test',
+        \l:jdPath)
+
+endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
     let l:testR = s:TestRunner.New()
     "{{{ misc tests
@@ -1960,6 +2126,10 @@ function! MvnRunTests() "{{{ MvnRunTests
     call s:TestProjTreeBuild(l:testR)
     call s:TestCreatePomDict(l:testR)
     call s:TestGetPomId(l:testR)
+    call s:TestGetVimInDict(l:testR)
+    call s:TestIdFromJarName(l:testR)
+    call s:TestClasspathPreen(testR)
+    call s:TestInstallJavadocFromSource(testR)
     "}}} Tree/Env Build
     "{{{ MvnGetClassFromFilename
     let l:result = MvnGetClassFromFilename("/opt/proj/src/main/java/pack/age/Dummy.java")
@@ -2014,7 +2184,7 @@ map \ps :call MvnPickInherits() <RETURN>
 "{{{ Public Variables ---------------------------------------------------------
 set cfu=VjdeCompletionFun
 "let g:vjde_lib_path = generated into in.vim
-"let g:mvn_prjPomDict = generated into in.vim
+"let g:mvn_currentPrjDict = generated into in.vim
 "let g:mvn_javadocPath = generated into in.vim
 "let g:mvn_javaSourcePath = generated into in.vim
 
