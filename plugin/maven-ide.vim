@@ -94,7 +94,7 @@ function! MvnInsertProjectTree(projPath) "{{{
             let s:mvn_defaultProject = matchstr(system("pwd"), "\\p\\+")
         endif
         call inputsave()
-        let l:mvnProjectPath = input("Enter the maven project path:", s:mvn_default
+        let l:mvnProjectPath = input("Enter the maven project path:", s:mvn_defaultProject)
         call inputrestore()
     endif
     call inputsave()
