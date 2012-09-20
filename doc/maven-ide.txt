@@ -62,7 +62,6 @@ Vim Project Dependencies:
 ==============================================================================
 TODO 								*maven-ide-todo*
 
-    o Add background processing for MvnBuildEnvSelection().
     o Allow attach to a debug process on a remote host.
     o Add a function to allow jumping to name of the current source file
       in the 'Project' tree.
@@ -219,6 +218,10 @@ of the project and invoke:
     \be
 
 A prompt for the project count will appear, enter 1.
+
+During a work session, open a second vim instance for execution of time
+consuming jobs i.e. \rp \be \bp leaving your initial vim instance free
+for use. In the project tree use :e to refresh any tree changes.
 
 ==============================================================================
 MAPPINGS						    *maven-ide-mappings*
