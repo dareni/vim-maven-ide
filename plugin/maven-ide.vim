@@ -74,6 +74,7 @@ endfunction; "}}} body }}}
 function! MvnGetProjectDir(projectLineNo) "{{{
 "Get the project directory from the project config file using the given
 "   line number.
+"a:projectLineNo - the line number of the project header.
 "{{{ body
     let l:line = getline(a:projectLineNo)
     let l:projectDir = matchstr(l:line, '=\@<=\([/A-Za-z0-9._-]\+\)', 0, 1)
@@ -149,6 +150,43 @@ function! MvnBuildProjectTree(pomList, prjIdPomDict) "{{{
         let l:currentPom += 1
     endwhile
     return l:prjTreeTxt
+endfunction; "}}} body }}}
+
+function! MvnJumpToTree() "{{{
+"Jump to the position in the tree for the current file.
+"{{{ body
+    let l:absoluteFilename = expand('%:p')
+    let l:filename = expand('%:t')
+    if !exists('g:proj_running')
+        throw "Is project running? Activate with ':Project'."
+    endif
+
+    let l:save_buffer = bufnr('.')
+    let l:prjWindow = bufwinnr(g:proj_running)
+    exe l:prjWindow.'wincmd w'
+    let l:save_cursor = getpos('.')
+
+    call setpos('.', [0, 1, 1, 0])
+    let l:lineno = 1
+    let l:foundLine = -1
+    while l:lineno > 0 && l:foundLine == -1
+        let l:lineno = search(l:filename, 'W')
+        if l:lineno != 0
+            let l:tmpFilename = Project_GetFname(line('.'))
+            if l:tmpFilename == l:absoluteFilename
+                let l:foundLine = l:lineno
+            else
+                let l:lineno += 1
+            endif
+        endif
+    endwhile
+
+    if l:foundLine == -1
+        call setpos('.', l:save_cursor)
+        exe l:save_buffer.'wincmd w'
+    else
+        call feedkeys('zv')
+    endif
 endfunction; "}}} body }}}
 
 "{{{ project pom/dependency dict
@@ -691,7 +729,7 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
         if strlen(l:mvnClassPath) == 0
             throw "No classpath."
         endif
-    endif 
+    endif
 
     let l:projectRuntimeDirs = MvnGetPathsFromPrjDict(a:prjIdPomDict, l:projectIdList, 'classMain')
     "Add l:projectRuntimeDirs (target/classes) to the path ahead of l:mvnClassPath (the jars).
@@ -1256,7 +1294,7 @@ function! MvnCompile() "{{{
     let l:outfile = s:mvn_tmpdir."/mvn.out"
     call delete(l:outfile)
     "surefire.useFile=false - force junit output to the console.
-    let l:cmd = "mvn clean install -Dsurefire.useFile=false"
+    "let l:cmd = "mvn clean install -Dsurefire.useFile=false"
     let l:cmd = "mvn clean ".
     \"org.apache.maven.plugins:maven-compiler-plugin:".
     \g:mvn_compilerVersion.":compile install -Dsurefire.useFile=false"
@@ -2143,7 +2181,7 @@ function! s:TestCreatePomDict(testR) "{{{ TestCreatePomDict
         \[l:testPrj.'/src/t/r'], l:mvnPomDict['resrcTest'])
 endfunction "}}} TestCreatePomDict
 function! s:TestGetPomDetailDict(testR) "{{{
-"Check existing elements in prjIdPomDict are preserved. 
+"Check existing elements in prjIdPomDict are preserved.
     new
     let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/test1"
     let l:testProjDir = s:mvn_tmpdir."/mvn-ide-test"
@@ -2258,6 +2296,9 @@ function! s:TestDependencies(dummy) "{{{
     if !filereadable(l:xpathFile)
         throw "No xpath executable. Check maven-ide installation instructions."
     endif
+    if !has('system')
+        throw "Require system feature. Run :version"
+    endif
 endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
     let l:testR = s:TestRunner.New()
@@ -2307,32 +2348,71 @@ endfunction; "}}} MvnCallTest
 "}}} Tests --------------------------------------------------------------------
 
 "{{{ Coding -------------------------------------------------------------------
-function! MvnCodeFormat() "{{{ 2
+function! MvnCodeFormat() "{{{
 "Format the current file.
-"{{{ 3
+"{{{ body
     let save_cursor = getpos(".")
     "Remove all end of line spaces.
     :1,$:s/ \+$//g
     call setpos('.', save_cursor)
-endfunction; "}}} 3 }}} 2
+endfunction; "}}} body }}}
+function! MvnPrintCodes() "{{{
+"Print Codes
+"Enter the codes with: CTRL-v ddd
+"   where the ddd are the 3 digit code.
+"{{{ body
+    new
+    let l:list = []
+    let l:indx = 0
+    let l:lineCnt = 30
+    let l:space = 4
+    while l:indx < 2048
+        if l:indx == 0
+            let l:char = 'NUL'
+        elseif l:indx == 9
+            let l:char = '\t'
+        else
+            let l:char = nr2char(l:indx)
+        endif
+        let l:displayWidth = strdisplaywidth(l:char)
+        let l:spaceAdj = l:space - l:displayWidth
+        call add(l:list, printf('%-3d %-1s'.repeat(' ',l:spaceAdj), l:indx, l:char))
+        let l:indx += 1
+    endwhile
+    let l:page = []
+    let l:maxRows = l:lineCnt
+    let l:indx = 0
+    while l:indx < l:lineCnt
+        call add(l:page, '')
+        let l:indx += 1
+    endwhile
+    let l:indx = 0
+    for l:val in l:list
+        let l:page[l:indx%l:lineCnt] .= l:val
+        let l:indx += 1
+    endfor
+    call append(0, l:page)
+endfunction; "}}} body }}}
 "}}} Coding -------------------------------------------------------------------
 
 "{{{ Key mappings -------------------------------------------------------------
+map \be :call MvnBuildEnvSelection() <RETURN>
+map \bp :call MvnInsertProjectTree("") <RETURN>
+map \bt :call MvnTagCurrentFile() <RETURN>
 map \cf :call MvnCodeFormat() <RETURN>
+map \dd :call MvnDownloadJavadoc() <RETURN>
+map \ds :call MvnDownloadJavaSource() <RETURN>
+map \fc :call MvnFindJavaClass() <RETURN>
+map \gs :call MvnFindInherits(expand("<cword>")) <RETURN>
+map \jt :call MvnJumpToTree() <RETURN>
+map \pc :call MvnPrintCodes() <RETURN>
+map \ps :call MvnPickInherits() <RETURN>
 map \rm :call MvnCompile() <RETURN>
 map \rj :call MvnJavacCompile() <RETURN>
 map \rd :call MvnDoDebug() <RETURN>
 map \rt :call MvnRunJunit() <RETURN>
 map \rp :call MvnRefreshPrjIdPomDict() <RETURN>
 map \sd :call MvnOpenJavaDoc(g:mvn_javadocPath) <RETURN>
-map \dd :call MvnDownloadJavadoc() <RETURN>
-map \ds :call MvnDownloadJavaSource() <RETURN>
-map \be :call MvnBuildEnvSelection() <RETURN>
-map \bp :call MvnInsertProjectTree("") <RETURN>
-map \bt :call MvnTagCurrentFile() <RETURN>
-map \fc :call MvnFindJavaClass() <RETURN>
-map \gs :call MvnFindInherits(expand("<cword>")) <RETURN>
-map \ps :call MvnPickInherits() <RETURN>
 "}}} Key mappings -------------------------------------------------------------
 
 "{{{ Public Variables ---------------------------------------------------------
