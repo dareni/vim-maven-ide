@@ -2292,12 +2292,12 @@ function! s:TestInstallJavadocFromSource(testR) "{{{
 
 endfunction; "}}}
 function! s:TestDependencies(dummy) "{{{
-    let l:xpathFile = glob("`which xpath`")
-    if !filereadable(l:xpathFile)
-        throw "No xpath executable. Check maven-ide installation instructions."
+    let l:xpathSuccess= glob("`perl -MXML::XPath -e 1`")
+    if len(l:xpathSuccess) > 0
+        throw "No perl XML::XPath module. Check maven-ide installation instructions."
     endif
-    if !has('system')
-        throw "Require system feature. Run :version"
+    if !has('python')
+        throw "Require python feature. Run :version"
     endif
 endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
