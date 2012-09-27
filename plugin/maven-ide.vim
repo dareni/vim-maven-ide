@@ -2309,7 +2309,9 @@ endfunction; "}}}
 function! s:TestTearDown() "{{{
     call system("rm -r ".s:mvnTmpTestDir)
     unlet s:mvnTmpTestDir
-    unlet g:mvn_currentPrjDict
+    if exists('g:mvn_currentPrjDict')
+        unlet g:mvn_currentPrjDict
+    endif
 endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
     let l:testR = s:TestRunner.New()
