@@ -2046,18 +2046,24 @@ function! s:TestCheckStylePlugin(testR) "{{{ TestCheckStylePlugin
     call a:testR.AssertEquals('checkstyle lineNumber in compiler output:', 48, l:errorsDict.lineNumber)
 endfunction "}}} TestCheckStylePlugin
 function! s:TestProjTreeBuild(testR) "{{{ TestProjTreeBuild
-    let l:prjLocation= s:mvn_scriptDir.'/plugin/test/proj'
-    let l:pomList = [l:prjLocation.'/test/pom.xml']
+    let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/test"
+    call system("cp -a ".l:mvn_testPrj." ".s:mvnTmpTestDir)
+
+    let s:tmpTestDir = s:mvn_scriptDir.'/plugin/test/proj'
+    let l:pomList = [s:tmpTestDir.'/test/pom.xml']
     let l:prjIdPomDict = {}
     let l:prjTreeTxt = MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
     call a:testR.AssertEquals('TestProjTreeBuild:', 18, len(l:prjTreeTxt))
     "TODO add test for l:prjIdPomDict and in.vim.
 
+    let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/parent"
+    call system("cp -a ".l:mvn_testPrj." ".s:mvnTmpTestDir)
+
     let l:prjIdPomDict = {}
-    let l:pomList = [l:prjLocation.'/parent/pom.xml',
-    \ l:prjLocation.'/parent/test1/pom.xml',
-    \ l:prjLocation.'/parent/test2/pom.xml',
-    \ l:prjLocation.'/parent/test3/pom.xml']
+    let l:pomList = [s:mvnTmpTestDir.'/parent/pom.xml',
+    \ s:mvnTmpTestDir.'/parent/test1/pom.xml',
+    \ s:mvnTmpTestDir.'/parent/test2/pom.xml',
+    \ s:mvnTmpTestDir.'/parent/test3/pom.xml']
     let l:prjTreeTxt = MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
     call a:testR.AssertEquals('TestProjTreeBuild1:', 56, len(l:prjTreeTxt))
     call a:testR.AssertEquals('TestProjTreeBuild2:', 4, len(l:prjIdPomDict))
@@ -2083,14 +2089,13 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
 
     try
         let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/test1"
-        let l:testProjDir = s:mvn_tmpdir."/mvn-ide-test"
-        call system("mkdir -p ".l:testProjDir)
-        silent execute 'new '.l:testProjDir.'/.vimproject'
+
+        silent execute 'new '.s:mvnTmpTestDir.'/.vimproject'
         let g:proj_running = bufnr('%')
         let l:prjIdPomFilename= bufname('%')."-mvn-ide"
 
-        call system("cp -a ".l:mvn_testPrj." ".l:testProjDir)
-        let l:testHome = l:testProjDir."/test1"
+        call system("cp -a ".l:mvn_testPrj." ".s:mvnTmpTestDir)
+        let l:testHome = s:mvnTmpTestDir."/test1"
         call MvnInsertProjectTree(l:testHome)
         "Test with the custom in.vim configuration.
         call a:testR.AssertEquals('Mvn src location: ', ' srcMain=src/m/java {', getline(3))
@@ -2149,7 +2154,6 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
             \l:runLib,
             \1, filereadable(l:runLib))
         bd!
-"        call system("rm -rf ".l:testHome)
     finally
         if l:proj_running != -1
             let g:proj_running = l:proj_running
@@ -2184,10 +2188,8 @@ function! s:TestGetPomDetailDict(testR) "{{{
 "Check existing elements in prjIdPomDict are preserved.
     new
     let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/test1"
-    let l:testProjDir = s:mvn_tmpdir."/mvn-ide-test"
-    call system("mkdir -p ".l:testProjDir)
-    call system("cp -a ".l:mvn_testPrj." ".l:testProjDir)
-    let l:testHome = l:testProjDir."/test1"
+    call system("cp -a ".l:mvn_testPrj." ".s:mvnTmpTestDir)
+    let l:testHome = s:mvnTmpTestDir."/test1"
     let l:prjIdPomDict = {'dummy': 'dummy'}
     call MvnGetPrjPomDict(l:testHome, l:prjIdPomDict, 1)
     call a:testR.AssertEquals('MvnGetPomDetailDict: ', 2, len(l:prjIdPomDict))
@@ -2300,8 +2302,18 @@ function! s:TestDependencies(dummy) "{{{
         throw "Require python feature. Run :version"
     endif
 endfunction; "}}}
+function! s:TestSetup() "{{{
+    let s:mvnTmpTestDir = s:mvn_tmpdir."/mvn-ide-test"
+    call system("mkdir -p ".s:mvnTmpTestDir)
+endfunction; "}}}
+function! s:TestTearDown() "{{{
+    call system("rm -r ".s:mvnTmpTestDir)
+    unlet s:mvnTmpTestDir
+    unlet g:mvn_currentPrjDict
+endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
     let l:testR = s:TestRunner.New()
+    call s:TestSetup()
     "{{{ misc tests
     call s:TestDependencies(l:testR)
     call s:TestMvnIsInList(l:testR)
@@ -2335,15 +2347,18 @@ function! MvnRunTests() "{{{ MvnRunTests
     call l:testR.AssertEquals('MvnTweakEnvForSrc fail:', "pack.age.Dummy", l:result)
     "}}} MvnGetClassFromFilename
     call l:testR.PrintStats()
+    call s:TestTearDown()
 endfunction; "}}} MvnRunTests
 function! MvnRunSingleTest(testFuncName) "{{{ MvnCallTest
 "Useful during test development.
 "a:testFuncName - a string containing the script function name of the test
 "   function without the 's:' prefix.
+    call s:TestSetup()
     let l:testR = s:TestRunner.New()
     let TestFun = function('s:'.a:testFuncName)
     call TestFun(l:testR)
     call l:testR.PrintStats()
+    call s:TestTearDown()
 endfunction; "}}} MvnCallTest
 "}}} Tests --------------------------------------------------------------------
 
