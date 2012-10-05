@@ -1,0 +1,267 @@
+diff -Naur /home/daren/vim/yavdb/yavdb ../../yavdb/yavdb
+--- /home/daren/vim/yavdb/yavdb	2007-07-14 08:27:00.000000000 +1000
++++ ../../yavdb/yavdb	2012-10-05 21:05:01.000000000 +1000
+@@ -55,51 +55,61 @@
+     #end def parseLineGDB
+ 
+     def parseLineJDB(self, pipe, line):
+-        m1 = re.search('Set deferred breakpoint ([A-Za-z0-9]+):([0-9]+)', line)
+-        m2 = re.search('Set breakpoint ([A-Za-z0-9]+):([0-9]+)$', line)
+-        m4 = re.search('Removed: breakpoint ([A-Za-z0-9]+):([0-9]+)$', line)
+-        m3 = re.match('Breakpoint hit: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
+-        m5 = re.search('Step completed: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
++        m1 = re.search('Set deferred breakpoint ([A-Za-z0-9.]+):([0-9]+)', line)
++        m2 = re.search('Set breakpoint ([A-Za-z0-9.]+):([0-9]+)$', line)
++        m4 = re.search('Removed: breakpoint ([A-Za-z0-9.]+):([0-9]+)$', line)
++#m3 = re.match('Breakpoint hit: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
++        m3 = re.match('Breakpoint hit: "thread=([A-Za-z0-9.-]+)", ([A-Za-z0-9<>().]+), line=([0-9]+) bci=([0-9]+)', line)
++#m5 = re.search('Step completed: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9<>()]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
++        m5 = re.search('Step completed:[ a-zA-Z0-9[\]]* "thread=([A-Za-z0-9.-]+)", ([A-Za-z0-9<>().$-]+), line=([0-9]+) bci=([0-9]+)', line)
+ 
+         if m1:
+-            print 'Breakpoint Set Detected:', m1.groups()
+             curLine  = m1.group(2)
+-            filename = m1.group(1) + ".java"
++            filename = self.getJavaFilename(m1.group(1))
+             self.toVim('VDBBreakSet(%s, \\"%s\\", %s)' % (
+                     curLine,
+                     filename,
+                     curLine))
++            print 'yavdb: Breakpoint1 Set Detected:', filename, ' line:', curLine
+         elif m2:
+-            print 'Breakpoint Set Detected:', m2.groups()
+             curLine  = m2.group(2)
+-            filename = m2.group(1) + ".java"
++            filename = self.getJavaFilename(m2.group(1))
+             self.toVim('VDBBreakSet(%s, \\"%s\\", %s)' % (
+                     curLine,
+                     filename,
+                     curLine))
++            print 'yavdb: Breakpoint2 Set Detected:', filename, ' line:', curLine
+         elif m4:
+-            print 'Breakpoint Clear Detected:', m4.groups()
+             curLine  = m4.group(2)
+-            filename = m4.group(1) + ".java"
++            filename = self.getJavaFilename(m4.group(1))
+             self.toVim('VDBBreakClear(%s, \\"%s\\")' % (
+                     curLine,
+                     filename))
++            print 'yavdb: Breakpoint Clear Detected:', filename, ' line:', curLine
+         elif m3:
+-            curLine  = m3.group(4)
+-            filename = m3.group(2) + ".java"
++            curLine  = m3.group(3)
++            filename = self.getJavaFilename(m3.group(2))
+             self.toVim('VDBHighlightLine(%s, \\"%s\\")' % (
+                     curLine,
+                     filename))
+-            print 'Breakpoint Stop Detected:', m3.groups()
++            print 'yavdb: Breakpoint Stop Detected:', filename, ' line:', curLine
+         elif m5:
+-            curLine  = m5.group(4)
+-            filename = m5.group(2) + ".java"
++            curLine  = m5.group(3)
++            filename = self.getJavaFilename(m5.group(2))
+             self.toVim('VDBHighlightLine(%s, \\"%s\\")' % (
+                     curLine,
+                     filename))
+-            print 'Line Step Detected:', m5.groups()
++            print 'yavdb: Line Step Detected:', filename, ' line:', curLine
++
+     #end def parseLineJDB
+ 
++    def getJavaFilename(self, classname):
++        classname = re.sub('\\.[^.]*\(\)$', '', classname) #remove method
++        classname = re.sub('\\$.*', '', classname) #remove inner classes
++        filename = re.sub('\\.', '/', classname) + '.java'
++        return filename
++    #end def getJavaFilename
++
+     def createCmdPipe(self):
+         os.mkfifo('.%s' % self.servername, 0600)
+     #end def createCmdPipe
+diff -Naur /home/daren/vim/yavdb/yavdb.txt ../../yavdb/yavdb.txt
+--- /home/daren/vim/yavdb/yavdb.txt	2012-02-07 21:02:03.000000000 +1000
++++ ../../yavdb/yavdb.txt	2012-10-05 21:06:01.000000000 +1000
+@@ -1,4 +1,6 @@
+-This is a generic Vim <->Debugger Interface Tool designed to be adaptable to any debugger application.  Currently supported debuggers include jdb and gdb.
++*yavdb.txt*
++This is a generic Vim <->Debugger Interface Tool designed to be adaptable to
++any debugger application.  Currently supported debuggers include jdb and gdb.
+ 
+ Script Requirements:
+ -VIM compiled with Signs, Client-Server, and Python support.
+@@ -9,9 +11,16 @@
+ 
+   yavdb [-s servername] [-t type] <debugger command line>
+ 
+-  -s specifies the Vim servername.  If no VIM (or GVIM) window exists with this servername, a new GVIM window will be opened.  If not specified, the servername 'VimDebugger' will be used.  If multiple applications are being debugged simultaneously unique servernames must be used.
+-
+-  -t can be used to override the debugger type.  If this option is omitted the debugger name will be used as the type.  Currently supported debugger types include 'gdb' and 'jdb'.  Note that jdb will only correctly notify VIM of events when classnames are identical to filenames (other than the .java extension).
++  -s specifies the Vim servername.  If no VIM (or GVIM) window exists with
++  		this servername, a new GVIM window will be opened.  If not specified,
++		the servername 'VimDebugger' will be used.  If multiple applications
++		are being debugged simultaneously unique servernames must be used.
++
++  -t can be used to override the debugger type.  If this option is omitted
++  		the debugger name will be used as the type.  Currently supported
++		debugger types include 'gdb' and 'jdb'.  Note that jdb will only
++		correctly notify VIM of events when classnames are identical to
++		filenames (other than the .java extension).
+ 
+   VIM will have the following key mappings set:
+ 
+@@ -21,10 +30,11 @@
+   <F8> Next Instruction
+   <F9> Set Breakpoint
+   <F10> Print variable value under cursor
+-   
++
+   install details
+   Place the file yavdb.vim in your plugins directory.
+   Place the file yavdb on in a directory on your path.
+-   
+-
++  Place the file yavdb.txt in the doc directory.
++  Run|helptags|.
+ 
++vim:ts=4 sw=4 noexpandtab tw=78 ft=help:
+diff -Naur /home/daren/vim/yavdb/yavdb.vim ../../yavdb/yavdb.vim
+--- /home/daren/vim/yavdb/yavdb.vim	2007-07-14 08:26:35.000000000 +1000
++++ ../../yavdb/yavdb.vim	2012-10-05 21:05:32.000000000 +1000
+@@ -8,8 +8,8 @@
+ highlight DebugBreak guibg=darkred    guifg=white ctermbg=darkred    ctermfg=white
+ highlight DebugStop  guibg=darkblue   guifg=white ctermbg=darkblue   ctermfg=white
+ 
+-sign define breakpoint linehl=DebugBreak
+-sign define current    linehl=DebugStop
++sign define breakpoint linehl=DebugBreak text=x
++sign define current    linehl=DebugStop text=>
+ 
+ " Get ready for communication
+ function! VDBInit(fifo, pwd, type)
+@@ -19,14 +19,14 @@
+     endif
+ 
+     let s:connected=1
+-    
++
+     let s:type = a:type
+     let s:fifo = a:fifo
+     execute "cd ". a:pwd
+-    
++
+     call VDBKeyMap()
+     let g:loaded_vimdebugger_mappings=1
+-    
++
+     if !exists(":Vdb")
+       command -nargs=+ Vdb        :call VDBCommand(<q-args>, v:count)
+     endif
+@@ -51,14 +51,14 @@
+     if match (a:cmd, '^\s*$') != -1
+         return
+     endif
+-    
++
+     " Create command arguments
+     let suff=""
+-    
++
+     if 0 < a:0 && a:1 != 0
+         let suff = " " . a:1
+     endif
+-    
++
+     " Send the command
+     "silent exec ":redir >>" . s:fifo ."|echon \"" . a:cmd.suff . "\n\"|redir END "
+     "silent exec ':!echo "' . a:cmd . suff . '" >> ' . s:fifo
+@@ -68,36 +68,35 @@
+ endfunction
+ 
+ function! VDBBreakSet(id, file, linenum)
+-    call VDBJumpToLine(a:linenum, a:file)
+-    if !bufexists(a:file)
+-        execute "bad ".a:file
+-    endif
++    let l:filename = VDBJumpToLine(a:linenum, a:file)
+     execute "sign unplace " . a:id
+-    execute "sign place   " . a:id . " name=breakpoint line=".a:linenum." file=".a:file
++    execute "sign place   " . a:id . " name=breakpoint line=".a:linenum." file=".l:filename
+ endfunction
+ 
+ function! VDBBreakClear(id, file)
+-    execute "sign unplace " . a:id . " file=".a:file
++    let l:filename = findfile(a:file)
++    execute "sign unplace " . a:id . " file=".l:filename
+ endfunction
+ 
+ function! VDBJumpToLine(line, file)
+-    if !bufexists(a:file)
+-        if !filereadable(a:file)
+-            return
++    let l:foundFile = findfile(a:file)
++    if !bufexists(l:foundFile)
++        if !filereadable(l:foundFile)
++            throw "file not found:".a:file
+         endif
+-        execute "e ".a:file
++        execute "e ".l:foundFile
+     else
+-        execute "b ".a:file
++        execute "b ".l:foundFile
+     endif
+-    let s:file=a:file
+-    execute a:line
++    :execute a:line
+     :silent! foldopen!
++    return l:foundFile
+ endfunction
+ 
+ function! VDBHighlightLine(line, file)
+-    call VDBJumpToLine(a:line, a:file)
++    let l:foundFile = VDBJumpToLine(a:line, a:file)
+     execute "sign unplace ". 1
+-    execute "sign place " .  1 ." name=current line=".a:line." file=".a:file
++    execute "sign place " .  1 ." name=current line=".a:line." file=".l:foundFile
+ endfunction
+ 
+ function! VDBKeyUnMap()
+@@ -107,12 +106,27 @@
+     silent! nunmap <F7>
+     silent! nunmap <F8>
+     silent! nunmap <F9>
++    silent! nunmap <C-F9>
+     silent! nunmap <F10>
+     silent! vunmap <F10>
+     silent! nunmap <F11>
+     silent! vunmap <F11>
+ endfunction
+ 
++function! VDBGetJavaFilePackage()
++    let l:res = ""
++    let l:line_imp = search ('^\s*package\s\+',"nb")
++    if  l:line_imp > 0
++        let l:str = getline(l:line_imp)
++        let l:cend = matchend(l:str,'^\s*package\s\+')
++        if  l:cend!= -1
++            let l:tmp = matchstr(l:str,".*$",l:cend)
++            let l:res =l:res.strpart(l:tmp,0,stridx(l:tmp,";"))
++        endif
++    endif
++    return l:res
++endfunction
++
+ function! VDBKeyMap()
+     call VDBKeyUnMap()
+     if match(s:type, "jdb") != -1
+@@ -120,7 +134,8 @@
+         nmap <unique> <F5>          :Vdb cont<CR>
+         nmap <unique> <F7>          :Vdb step<CR>
+         nmap <unique> <F8>          :Vdb next<CR>
+-        nmap <unique> <F9>          :execute "Vdb stop at " . substitute(bufname("%"), ".java", "", "") . ":" . line(".")<CR>
++        nmap <unique> <F9>          :execute "Vdb stop at " . VDBGetJavaFilePackage() . "." . expand("%:t:r") . ":" . line(".")<CR>
++        nmap <unique> <C-F9>        :execute "Vdb clear " . VDBGetJavaFilePackage() . "." . expand("%:t:r") . ":" . line(".")<CR>
+         vmap <unique> <F10>         "gy:Vdb print <C-R>g<CR>
+         nmap <unique> <F10>         :Vdb print <C-R><C-W><CR>
+     elseif match(s:type, "gdb") != -1

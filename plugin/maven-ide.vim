@@ -1,7 +1,7 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Fri Aug 17 22:02:35 EST 2012
+" Last Change: Fri Oct  5 21:34:03 EST 2012
 " Version:     0.5
 "=============================================================================
 " See documentation in accompanying help file.
@@ -1375,9 +1375,9 @@ function! MvnJavacCompile() "{{{
 
     let l:classpath = g:vjde_lib_path
     if g:mvn_isTest == 1
-        let l:target = g:mvn_currentPrjDict['classTest']
+        let l:target = g:mvn_currentPrjDict['classTest'][0]
     else
-        let l:target = g:mvn_currentPrjDict['classMain']
+        let l:target = g:mvn_currentPrjDict['classMain'][0]
     endif
 
     compiler javac_ex
@@ -1406,7 +1406,7 @@ function! MvnIsTestSrc(srcFile, prjPomDict) "{{{
                 let isMain = 1
             endif
         endfor
-        if isMain == 0
+        if isMain == 0 && bufnr('%') != g:proj_running
             if match(a:srcFile, a:prjPomDict['home']) != 0
                 throw "Source file " . a:srcFile . " is not in the environment" .
                 \"path for project " . a:prjPomDict['home']
@@ -1462,6 +1462,8 @@ function! MvnDoDebug() "{{{
 "   let l:debugger = "yavdb -s " . v:servername . " -t jdb \"" .  g:jdbcmd . "\""
 "   let l:debugger = '!xterm \"yavdb -s DEBUG -t jdb\"'
 
+"tomcat debug options:   -agentlib:jdwp=transport=dt_socket,server=y,address=11550,suspend=n
+
 " jdb -sourcepath -attach 11550
     if strlen(v:servername) == 0
         echo "No servername!"
@@ -1493,23 +1495,33 @@ function! MvnDoDebug() "{{{
             return
         endif
 
+        let l:host = ''
         if l:SelectedOption == 0
             let l:port = g:mvn_debugPortList[0]
             call MvnRunDebugProcess(l:port, l:classPath,
                 \l:isTest, expand('%:p'), l:prjPomDict)
         else
-            let l:port= g:mvn_debugPortList[l:SelectedOption-1]
+            let l:portHostList = split(g:mvn_debugPortList[l:SelectedOption-1], ':')
+            if len(l:portHostList) == 1
+                let l:port = l:portHostList[0]
+            elseif len(l:portHostList) == 2
+                let l:port = l:portHostList[1]
+                let l:host = l:portHostList[0]
+            else
+                throw "Invalid host:port ". join(l:portHostList, ":")
+            endif
         endif
 
         "Execute the debugger.
         let l:debugger = "!xterm -T yavdb -e ".s:mvn_scriptDir."/bin/yavdb.sh "
-        let l:debugger .= v:servername . " " . g:mvn_javaSourcePath ." " . l:port
+        let l:debugger .= v:servername . " " . g:mvn_javaSourcePath ." ".l:port." ".l:host
         let l:debugger.= " |tee ".s:mvn_tmpdir."/dbgjdb.out &"
         exec l:debugger
     endif
 endfunction; "}}}
 
 function! MvnRunDebugProcess(port, classpath, isTest, filename, prjPomDict) "{{{
+"run the java program or unit test.
     let l:classUnderDebug = MvnGetClassFromFilename(a:filename, a:prjPomDict)
     "Execute the java class or test runner.
     let l:javaProg = "!xterm  -T ".l:classUnderDebug
@@ -2525,7 +2537,7 @@ map \dd :call MvnDownloadJavadoc() <RETURN>
 map \ds :call MvnDownloadJavaSource() <RETURN>
 map \fc :call MvnFindJavaClass() <RETURN>
 map \gs :call MvnFindInherits(expand("<cword>")) <RETURN>
-map \jt :call MvnJumpToTree() <RETURN>
+map \gt :call MvnJumpToTree() <RETURN>
 map \pc :call MvnPrintCodes() <RETURN>
 map \ps :call MvnPickInherits() <RETURN>
 map \rm :call MvnCompile() <RETURN>
@@ -2568,7 +2580,7 @@ if !exists('g:mvn_mavenType')
     let g:mvn_mavenType = "maven3"
 endif
 if !exists('g:mvn_debugPortList')
-    let g:mvn_debugPortList = [8888,11550]
+    let g:mvn_debugPortList = ['8888','11550','dev.localdomain:11550']
 endif
 if !exists('g:mvn_pluginList')
     let g:mvn_pluginList = ['Mvn3Plugin', 'Junit3Plugin', 'CheckStylePlugin']

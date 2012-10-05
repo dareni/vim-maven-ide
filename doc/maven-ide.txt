@@ -1,4 +1,4 @@
-*maven-ide.txt*	For Vim version 7.x. Last Change: Sun Aug 12 22:06:35 EST 2012
+*maven-ide.txt*	For Vim version 7.x. Last Change: Fri Oct  5 21:33:12 EST 2012
 
 	Plugin for managing java maven projects.	
 
@@ -15,6 +15,7 @@
 		Installation.........|maven-ide-installation|
 		Quickstart.............|maven-ide-quickstart|
 		Mappings.................|maven-ide-mappings|
+		Notes.......................|maven-ide-notes|
 		Bugs.........................|maven-ide-bugs|
 
 The goal of maven-ide plugin is to provide ide functionality for the
@@ -27,6 +28,7 @@ Features include:
     o Compilation is background via AsyncCommand.
     o Debug using yavdb, allows debug of class main or attach to jvm debug
        port.
+    o Allow attach to a debug process on a remote host.
 	o Junit run/quickfix/debug.
     o Dependency source file and javadoc integration. Javadoc viewing uses
       lynx.
@@ -47,7 +49,7 @@ External Dependencies:
     o Developed and tested on Linux and FreeBSD.
     o Tested on jdk1.6, maven2, maven3.
     o Lynx browser: javadoc display.
-    o textproc/p5-XML-XPath (aka libxml-xpath-perl): pom.xml processing.
+	o Perl XML::XPath module for pom.xml processing.
     o Exuberant Ctags: tag navigation.
     o yavdb dependencies: python 2.5, vim compiled with signs, client-server
       and python support, an os with named pipes support.
@@ -62,7 +64,6 @@ Vim Project Dependencies:
 ==============================================================================
 TODO 								*maven-ide-todo*
 
-    o Allow attach to a debug process on a remote host.
     o Add a function to allow jumping to name of the current source file
       in the 'Project' tree.
     o Improve debug variable inspection functionality. Currently variable
@@ -85,9 +86,9 @@ INSTALLATION                        *maven-ide-installation*
 EXTERNAL SOFTWARE DEPENDENCIES
     o Install lynx text browser.
     o Install Exuberant Ctags. FreeBSD devel/ctags.
-    o Install the perl xpath module.
-        FreeBSD - textproc/p5-XML-XPath
-        Linux - libxml-xpath-perl, aka perl-XML-path
+    o Install the perl XML::XPath module.
+      No longer require:: (FreeBSD - textproc/p5-XML-XPath, Linux -
+							libxml-xpath-perl, aka perl-XML-path)
 
 VIM PLUGIN DEPENDENCIES
     o Recommend the installation of pathogen to organise plugin installation.
@@ -103,11 +104,9 @@ VIM PLUGIN DEPENDENCIES
 		o :helptags ~/.vim/bundle/project/doc
     o Install yavdb
         o http://www.vim.org/scripts/script.php?script_id=1954
-        o mkdir -p ~/.vim/bundle/yavdb/{plugin,doc}
-        o cp yavdb.vim ~/.vim/bundle/yavdb/plugin
-		o cp yavdb.txt ~/.vim/bundle/yavdb/doc
+        o mkdir ~/.vim/bundle/yavdb
+        o cp yavdb.vim yavdb.txt ~/.vim/bundle/yavdb
         o cp yavdb to a directory in your path.
-		o :helptags ~/.vim/bundle/vjde/doc
     o Install AsyncCommand in ~/.vim/bundle/asynccommand
         o http://www.vim.org/scripts/script.php?script_id=3431
 		o :helptags ~/.vim/bundle/asynccommand/doc
@@ -116,7 +115,8 @@ VIM PLUGIN DEPENDENCIES
 		o :helptags ~/.vim/bundle/vjde/doc
     o Install maven-ide in ~/.vim/bundle/maven-ide
 		o :helptags ~/.vim/bundle/maven-ide/doc
-		o install ~/.vim/bundle/maven-ide/yavdb patches to yavdb project.
+		o cd ~/.vim/bundle/maven-ide/yavdb and run patch-yavdb.sh.
+		o :helptags ~/.vim/bundle/yavdb/doc
 
 RECOMMENDED VIM PLUGINS
     o bufmru - easily switch to most recently used buffers.
@@ -158,8 +158,8 @@ g:mvn_mavenType						*mvn_mavenType*
     let g:mvn_mavenType = "maven3"
 
 g:mvn_debugPortList					*mvn_debugPortList*
-	- ports for debug prompt:
-    let g:mvn_debugPortList = [8888,11550]
+	- ports/hosts for debug prompt:
+    let g:mvn_debugPortList = ['8888','11550','dev.localdomain:11550']
 
 g:mvn_pluginList					*mvn_pluginList*
 	- maven output processor modules (this is the complete list for now).
@@ -239,7 +239,7 @@ the classpath, tag file path, java source, documentation paths and data
 extracted from the project maven pom.xml. The classpath and source
 path will use sibling projects from the tree. Sibling project data is
 cached in a file '.vimprojects-mvn-ide', stored at the location of the
-project .vimprojects file. See |project-invoking|. The 'in.vim' file is 
+project .vimprojects file. See |project-invoking|. The 'in.vim' file is
 maintained during |MvnBuildEnvSelection()|and|MvnInsertProjectTree()|execution.
  b) Search local maven repo for javadoc and source artifacts for dependencies
 and unarchive to|mvn_javadocParentDir|,|mvn_javaSourceParentDir|directories.
@@ -304,6 +304,17 @@ cursor.
 
 \ps *MvnPickInherits()*					source buffer
 Pick from the list of the previous MvnFindInherits() search.
+
+==============================================================================
+NOTES    						    *maven-ide-notes*
+
+Plugin yavdb uses <C-F5> for the debugger run command. The control-function
+keys may require mapping ie
+
+	map ^[[15;5~ <C-F5>
+
+To display key data use:
+	set showcmd
 
 ==============================================================================
 BUGS    						    *maven-ide-bugs*
