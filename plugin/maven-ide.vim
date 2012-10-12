@@ -128,7 +128,7 @@ endfunction; "}}}
 
 function! MvnBuildProjectTree(pomList, prjIdPomDict) "{{{
 "Build a Project directory tree maven style in the cursor position in the
-"current file. On completion use Project \R to populate with files.
+"current buffer. On completion use Project \R to populate with files.
 "a:pomList - build a project tree for each pom.xml in the list.
 "a:prjIdPomDict - project configuration store, see MvnSetPrjIdPomDict().
 "return - prjTreeLinesList - a list containing the new text representing the project to
@@ -461,9 +461,7 @@ endfunction; "}}} body }}}
 function! MvnGetPomFileData(projectHomePath) "{{{
 "run maven to collect classpath and effective pom data as a string.
 "{{{ body
-    let l:mvnData = system("cd ".a:projectHomePath."; "
-        \."mvn org.apache.maven.plugins:maven-dependency-plugin:2.4:build-classpath"
-        \." org.apache.maven.plugins:maven-help-plugin:2.1.1:effective-pom")
+    let l:mvnData = system("cd ".a:projectHomePath."; ".s:mvnCmd)
     return l:mvnData
 endfunction; "}}} body }}}
 
@@ -485,6 +483,10 @@ function! MvnCreatePomDict(mvnData, projectHome, prjPomDict) "{{{
     let l:effectivePom = a:mvnData
     let l:effectivePom = MvnTrimStringPre(l:effectivePom, "<project ")
     let l:effectivePom = MvnTrimStringPost(l:effectivePom, "</project>")
+    if len(l:effectivePom) == 0
+        throw "Maven command failed for project ".a:projectHome. " command: ".
+        \s:mvnCmd
+    endif
     let l:effectivePom = substitute(l:effectivePom, "\n", "", "g")
     let l:pomFilename = s:mvn_tmpdir."/effective-pom.xml"
     call writefile([l:effectivePom], l:pomFilename)
@@ -520,7 +522,7 @@ function! MvnCreatePomDict(mvnData, projectHome, prjPomDict) "{{{
     call delete(s:mvn_tmpdir."/effective-pom.xml")
     let l:pomDict = MvnDefaultDictConfigurables(l:pomDict)
     if len(l:warningList) > 0
-        echo split(l:warningList)
+        echo join(l:warningList, ' ')
     endif
     return l:pomDict
 endfunction; "}}} body }}}
@@ -530,12 +532,11 @@ function! MvnAddElementToPomDict(pomDict, warnList,
         \key, xquery, pomFilename )
 "Update the project dict with the key and value.
 "Add a warning message for keys with no value.
-    let message = ''
     let l:tmpPathList =  MvnGetStringsFromXPath(a:pomFilename, a:xquery)
     if len(l:tmpPathList) > 0
         let l:pomDict = MvnUpdateDict(a:pomDict, a:key, l:tmpPathList)
     else
-        call add(a:warnList, pomDict['home'].' contains no keys of '.a:key.'.')
+        call add(a:warnList, a:pomDict['home'].' contains no key of '.a:key.'.')
     endif
 endfunction; "}}} MvnAddElementToPomDict
 
@@ -2099,8 +2100,7 @@ function! s:TestProjTreeBuild(testR) "{{{ TestProjTreeBuild
     let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/test"
     call system("cp -a ".l:mvn_testPrj." ".s:mvnTmpTestDir)
 
-    let s:tmpTestDir = s:mvn_scriptDir.'/plugin/test/proj'
-    let l:pomList = [s:tmpTestDir.'/test/pom.xml']
+    let l:pomList = [s:mvnTmpTestDir.'/test/pom.xml']
     let l:prjIdPomDict = {}
     let l:prjTreeTxt = MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
     call a:testR.AssertEquals('TestProjTreeBuild:', 18, len(l:prjTreeTxt))
@@ -2159,28 +2159,33 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
         call a:testR.AssertEquals('Sibling project identifiers2: ',
                 \'test:test1:1.0', l:prjIdPomDict['test:test1:1.0']['id'])
 
-        "position the cursor.
-        :2
-        "make sure the junit javadoc and source exists.
-        let l:cmd = "cd ".l:testHome
-        let l:cmd .= "; mvn org.apache.maven.plugins:maven-dependency-plugin:2.1:"
-        let l:cmd .= "resolve -Dclassifier=javadoc"
-        let l:cmd .= " org.apache.maven.plugins:maven-dependency-plugin:2.1:"
-        let l:cmd .= "sources"
-
-        call MvnBuildEnv(l:testHome, {}, '/dummy/jre/path')
-
         "Get the maven repo directory.
+        let l:effectiveSettingsFile = s:mvn_tmpdir."/effective-settings.xml"
         let l:effectiveSettings = system("cd ".l:testHome."; "
             \."mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:effective-settings")
         let l:effectiveSettings = MvnTrimStringPre(l:effectiveSettings, "<settings ")
         let l:effectiveSettings = MvnTrimStringPost(l:effectiveSettings, "</settings>")
         let l:effectiveSettings = substitute(l:effectiveSettings, "\n", "", "g")
-        let l:effectiveSettingsFile = s:mvn_tmpdir."/effective-settings.xml"
         call writefile([l:effectiveSettings], l:effectiveSettingsFile)
         let l:query = "/settings/localRepository/text\(\)"
         let l:rawNodeList = MvnGetXPath(l:effectiveSettingsFile, l:query)
         let l:mvnRepoDir = MvnParseNodesToList(l:rawNodeList)[0]
+
+        if !filereadable(l:mvnRepoDir.'/junit/junit/3.8.2/junit-3.8.2.jar') ||
+            \!filereadable(l:mvnRepoDir.'/junit/junit/3.8.2/junit-3.8.2-sources.jar')
+            "make sure the junit javadoc and source exists.
+            let l:cmd = "cd ".l:testHome
+            let l:cmd .= "; mvn org.apache.maven.plugins:maven-dependency-plugin:2.1:"
+            let l:cmd .= "resolve -Dclassifier=javadoc"
+            let l:cmd .= " org.apache.maven.plugins:maven-dependency-plugin:2.1:"
+            let l:cmd .= "sources"
+            let l:output = system(l:cmd)
+        endif
+
+        "position the cursor.
+        :2
+        call MvnBuildEnv(l:testHome, {}, '/dummy/jre/path')
+
         "Check the configuration in in.vim.
         let l:inVimList = readfile(l:testHome.'/in.vim')
         let l:line = get(l:inVimList, 0)
@@ -2315,7 +2320,6 @@ function! s:TestClasspathPreen(testR) "{{{
    call a:testR.AssertEquals('ClasspathPreen: ', '/foobar.jar', l:preened)
 endfunction; "}}}
 function! s:TestInstallJavadocFromSource(testR) "{{{
-    :let s:mvn_tmpdir = "/tmp"
     "test the find command
     let l:findCmd = "`find ".s:mvn_scriptDir."/plugin/test/javadoc/src/mvn-ide-test".
         \" -maxdepth 1 -type d -print`"
@@ -2335,22 +2339,12 @@ function! s:TestInstallJavadocFromSource(testR) "{{{
         call add(l:subDirs, l:name)
     endfor
     "test the build of javadoc
-    call system('mkdir -p '. s:mvn_tmpdir.'/mvn-ide-test/javadoc')
-    let l:jdPath = MvnInstallJavadocFromSource(s:mvn_tmpdir.'/mvn-ide-test/javadoc',
+    call system('mkdir -p '. s:mvnTmpTestDir.'/javadoc')
+    let l:jdPath = MvnInstallJavadocFromSource(s:mvnTmpTestDir.'/javadoc',
         \s:mvn_scriptDir.'/plugin/test/javadoc/src',
         \['/blah/blah/mvn-ide-test-sources.jar'], [])
-    call a:testR.AssertEquals('MvnInstallJavadoc: ', s:mvn_tmpdir.'/mvn-ide-test/javadoc/mvn-ide-test',
+    call a:testR.AssertEquals('MvnInstallJavadoc: ', s:mvnTmpTestDir.'/javadoc/mvn-ide-test',
         \l:jdPath)
-
-endfunction; "}}}
-function! s:TestDependencies(dummy) "{{{
-    let l:xpathSuccess= glob("`perl -MXML::XPath -e 1`")
-    if len(l:xpathSuccess) > 0
-        throw "No perl XML::XPath module. Check maven-ide installation instructions."
-    endif
-    if !has('python')
-        throw "Require python feature. Run :version"
-    endif
 endfunction; "}}}
 function! s:TestUpdateFile(testR) "{{{
    "TODO finish
@@ -2397,26 +2391,64 @@ function! s:TestSetTestEnv(testR) "{{{
     call a:testR.AssertEquals('TestSetTestEnv6: ', s:mvnTmpTestDir.'/a/b/tags-t,', &tags)
 endfunction; "}}}
 function! s:TestIsTestSrc(testR) "{{{
+    if !exists('g:proj_running')
+        throw "Please run :Project before the test execution."
+    endif
     let l:prjPomDict = {'srcMain': ['a/b/c'], 'srcTest': ['x/y/z'], 'home': '123'}
     let l:srcFile = 'a/b/c/d.txt'
     let l:isTest = MvnIsTestSrc(l:srcFile, l:prjPomDict)
     call a:testR.AssertEquals('TestIsTestSrc0: ', 0, l:isTest)
 
+    let l:tmpProj = g:proj_running
+    let g:proj_running = -1
     let l:prjPomDict = {'srcMain': ['/a/b/c'], 'srcTest': ['x/y/z'], 'home': '123'}
     try
         let l:isTest = MvnIsTestSrc(l:srcFile, l:prjPomDict)
     catch /Source file */
        let l:isTest = -2
     endtry
+    let g:proj_running = l:tmpProj
     call a:testR.AssertEquals('TestIsTestSrc1: ', -2, l:isTest)
 
     let l:srcFile = 'x/y/z/a/b/c/d.txt'
     let l:isTest = MvnIsTestSrc(l:srcFile, l:prjPomDict)
-    call a:testR.AssertEquals('TestIsTestSrc0: ', 1, l:isTest)
+    call a:testR.AssertEquals('TestIsTestSrc2: ', 1, l:isTest)
 
     let l:srcFile = '123/d.txt'
     let l:isTest = MvnIsTestSrc(l:srcFile, l:prjPomDict)
-    call a:testR.AssertEquals('TestIsTestSrc0: ', 0, l:isTest)
+    call a:testR.AssertEquals('TestIsTestSrc3: ', 0, l:isTest)
+endfunction; "}}}
+function! s:TestExecutable(filename) "{{{
+    let l:bin = system('which '.a:filename)
+    if len(l:bin) == 0
+        throw "No ".a:filename." in shell execution path."
+    else
+        let l:endPos = matchend(l:bin, '[\n\r]')
+        let l:bin = strpart(l:bin, 0, l:endPos - 1)
+        if !executable(l:bin)
+            throw "File ".a:filename." at ".l:bin." not executable."
+        endif
+    endif
+endfunction "}}}
+function! s:TestDependencies(dummy) "{{{
+    call s:TestExecutable('java')
+    call s:TestExecutable('mvn')
+    call s:TestExecutable('perl')
+    call s:TestExecutable('find')
+    call s:TestExecutable('yavdb')
+    let l:xpathSuccess= glob("`perl -MXML::XPath -e 1`")
+    if len(l:xpathSuccess) > 0
+        throw "No perl XML::XPath module. Check maven-ide installation instructions."
+    endif
+    if !has('python')
+        throw "Require python feature. Run :version"
+    endif
+    if len($USER) == 0
+        throw 'Environment $USER is required.'
+    endif
+    if !has('clientserver')
+        echo  'No clientserver'
+    endif
 endfunction; "}}}
 function! s:TestSetup() "{{{
     let s:mvnTmpTestDir = s:mvn_tmpdir."/mvn-ide-test"
@@ -2603,7 +2635,7 @@ elseif s:mvn_kernel == "Linux"
 "   let s:mvn_xpathcmd = "xpath -e \"query\" filename"
    let s:mvn_tagprg = "ctags"
 endif
-let s:mvn_tmpdir = "/tmp"
+let s:mvn_tmpdir = resolve("/tmp")."/".$USER
 let s:mvn_defaultProject = ""
 let s:mvn_scriptFile = expand("<sfile>")
 let s:mvn_scriptDir = strpart(s:mvn_scriptFile, 0,
@@ -2611,7 +2643,9 @@ let s:mvn_scriptDir = strpart(s:mvn_scriptFile, 0,
 let s:mvn_xpathcmd = "perl -w ".s:mvn_scriptDir.
         \"/bin/xpath.pl filename \"query\""
 let s:plugins = MvnPluginInit()
+let s:mvnCmd = "mvn org.apache.maven.plugins:maven-dependency-plugin:2.4:build-classpath"
+        \." org.apache.maven.plugins:maven-help-plugin:2.1.1:effective-pom"
 "}}} Private Variables  -------------------------------------------------------
 "}}} Public Variables ---------------------------------------------------------
 
-"vim:ts=4 sw=4 expandtab tw=78 ft=vim fdm=marker:
+" vim:ts=4:sw=4:expandtab:tw=78:ft=vim:fdm=marker:

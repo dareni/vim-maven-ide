@@ -64,8 +64,6 @@ Vim Project Dependencies:
 ==============================================================================
 TODO 								*maven-ide-todo*
 
-    o Add a function to allow jumping to name of the current source file
-      in the 'Project' tree.
     o Improve debug variable inspection functionality. Currently variable
       values are printed in the jdb console, and dump of variables is
       directly via jdb.
