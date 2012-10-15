@@ -1033,10 +1033,6 @@ function! s:Mvn2Plugin.New()
    call this.addStartRegExp('^\[INFO\] Compilation failure')
    return this
 endfunction
-function! s:Mvn2Plugin.processErrors()
-    let l:ret = {'lineNumber': a:lineNo, 'quickfixList': []}
-    return l:ret
-endfunction
 function! s:Mvn2Plugin.processErrors() "{{{ processErrors
 "return dict { lineNumber, quickfixList }
 "   quickfixList of dict : {bufnr, filename, lnum, pattern, col, vcol, nr, text, type}
@@ -1178,8 +1174,9 @@ function! s:Junit3Plugin.processErrors() "{{{ processErrors
                 let l:fixList = l:resultDict.fixList
                 let l:lineNo = l:resultDict.lineNo
                 call add(l:quickfixList, l:fixList)
+            else
+                let l:lineNo += 1
             endif
-            let l:lineNo += 1
         endwhile
         if len(l:quickfixList) > 0
             let l:ret.lineNumber = l:testFinish
@@ -1191,9 +1188,25 @@ endfunction
 function! s:Junit3Plugin.doFailure(lineNo, finishLineNo)
     let l:lineNo = a:lineNo + 1
     let l:message = self._mvnOutputList[l:lineNo]
-    let l:failFinishLine = match(self._mvnOutputList, '^$', l:lineNo)
-    if l:failFinishLine > a:finishLineNo
-        throw "Unable to parse Junit error."
+    "find the start of the next error or the end of errors (blank line).
+    let l:endPosList = []
+    call add(l:endPosList, match(self._mvnOutputList, '^$', l:lineNo))
+    call add(l:endPosList, match(self._mvnOutputList, '<<< FAILURE!$', l:lineNo))
+    call add(l:endPosList, match(self._mvnOutputList, '<<< ERROR!$', l:lineNo))
+    let l:tmpList = reverse(sort(l:endPosList))
+    let l:endPosList = l:tmpList
+    if l:endPosList[0] == -1
+        throw "Unable to parse Junit error 1."
+    else
+        let l:failFinishLine = l:endPosList[0]
+    endif
+    for l:endPos in l:endPosList
+        if l:endPos != -1 && l:endPos < l:failFinishLine
+            let l:failFinishLine = l:endPos
+        endif
+    endfor
+    if l:failFinishLine > a:finishLineNo || l:failFinishLine == -1
+        throw "Unable to parse Junit error 2."
     endif
     let l:line = self._mvnOutputList[l:failFinishLine - 1]
     let l:posStart = match(l:line, '(') + 1
@@ -1209,8 +1222,25 @@ function! s:Junit3Plugin.doFailure(lineNo, finishLineNo)
     let l:classname = l:package.'.'.l:fileNoExt
     let l:filename = substitute(l:classname, '\.', '/', 'g')
     let l:filename .= '.java'
+    let l:revertTestEnv = 0
+    if !g:mvn_isTest
+        let l:revertTestEnv = 1
+        let l:vjde_lib_path = g:vjde_lib_path
+        let l:mvn_javaSourcePath = g:mvn_javaSourcePath
+        let l:oldpath = &path
+        let l:oldtags = &tags
+        call MvnDoSetTestEnv(g:mvn_currentPrjDict)
+    endif
     let l:absoluteFilename = findfile(l:filename)
-
+    if l:revertTestEnv == 1
+        let g:vjde_lib_path = l:vjde_lib_path
+        let g:mvn_javaSourcePath = l:mvn_javaSourcePath
+        let &path = l:oldpath
+        let &tags = l:oldtags
+    endif
+    if len(l:absoluteFilename) == 0
+        echo 'Can not find '.l:filename
+    endif
     let l:fixList = {'bufnr': '', 'filename': l:absoluteFilename,
         \'lnum': l:errorLineNo, 'pattern': '', 'col': '',
        \'vcol': '', 'nr': '', 'text': message, 'type': 'E'}
@@ -1300,6 +1330,7 @@ function! MvnCompile() "{{{
 "   build of quickfix list.
     call setqflist([])
     let l:outfile = s:mvn_tmpdir."/mvn.out"
+    call system('mkdir -p '.s:mvn_tmpdir)
     call delete(l:outfile)
     "surefire.useFile=false - force junit output to the console.
     "let l:cmd = "mvn clean install -Dsurefire.useFile=false"
@@ -1314,6 +1345,7 @@ function! MvnCompile() "{{{
         call MvnOP2QuickfixList(l:outfile)
     else
         let l:Fn = function("MvnOP2QuickfixList")
+        let l:cmd .=" | tee ".l:outfile
         call asynccommand#run(l:cmd, l:Fn)
     endif
 endfunction; "}}}
@@ -1428,24 +1460,28 @@ function! MvnSetTestEnv(...) "{{{
         let l:srcFile = a:1
         let l:prjPomDict = a:2
     endif
-    if MvnIsTestSrc(srcFile, prjPomDict)
-        if has_key(l:prjPomDict, 'classTest')
-            let g:vjde_lib_path = join(l:prjPomDict['classTest'], ':').
-            \':'.g:vjde_lib_path
-        endif
-        if has_key(l:prjPomDict, 'srcTest')
-            let g:mvn_javaSourcePath = join(l:prjPomDict['srcTest'], ':') .':'.
-                \g:mvn_javaSourcePath
-            let &path = join(l:prjPomDict['srcTest'], '/**,'). '/**,'. &path
-            let l:tagfile = l:prjPomDict['home'] . '/tags-t'
-            if filereadable(l:tagfile)
-                let &tags = l:tagfile.','.&tags
-            endif
-        endif
+    if MvnIsTestSrc(srcFile, l:prjPomDict)
+        call MvnDoSetTestEnv(l:prjPomDict)
         let g:mvn_isTest = 1
     else
         let g:mvn_isTest = 0
     endif
+endfunction; "}}}
+
+function! MvnDoSetTestEnv(prjPomDict) "{{{
+        if has_key(a:prjPomDict, 'classTest')
+            let g:vjde_lib_path = join(a:prjPomDict['classTest'], ':').
+            \':'.g:vjde_lib_path
+        endif
+        if has_key(a:prjPomDict, 'srcTest')
+            let g:mvn_javaSourcePath = join(a:prjPomDict['srcTest'], ':') .':'.
+                \g:mvn_javaSourcePath
+            let &path = join(a:prjPomDict['srcTest'], '/**,'). '/**,'. &path
+            let l:tagfile = a:prjPomDict['home'] . '/tags-t'
+            if filereadable(l:tagfile)
+                let &tags = l:tagfile.','.&tags
+            endif
+        endif
 endfunction; "}}}
 "}}} Compiler -----------------------------------------------------------------
 
@@ -2069,16 +2105,32 @@ function! s:TestMvn3Plugin(testR) "{{{ TestMvn3Plugin
     call a:testR.AssertEquals('mvn3 quickfix list size:', 0, len(l:errorsDict.quickfixList))
 endfunction "}}} TestMvn3Plugin
 function! s:TestJunitPlugin(testR) "{{{ TestJunitPlugin
+    let g:mvn_isTest = 0
+    let &path = s:mvn_scriptDir.'/plugin/test/proj/test/src/test/java'
+    let g:mvn_javaSourcePath = ''
+    let g:mvn_currentPrjDict = {}
+    "test mvn v3 output
     let l:testFile = s:mvn_scriptDir.'/plugin/test/maven3junit3.out'
     let l:testList = readfile(l:testFile)
     let l:junit3Plugin = s:Junit3Plugin.New()
     call l:junit3Plugin.setOutputList(l:testList)
     let l:errorsDict = l:junit3Plugin.processAtLine(35)
-    call a:testR.AssertEquals('junit3 lineNumber :', 69, l:errorsDict.lineNumber)
-    call a:testR.AssertEquals('junit3 error count:', 3, len(l:errorsDict.quickfixList))
-    call a:testR.AssertEquals('junit3 Source file rowNum:', 35, l:errorsDict.quickfixList[0].lnum)
-    call a:testR.AssertEquals('junit3 Source file colNum:', '', l:errorsDict.quickfixList[0].col)
-    call a:testR.AssertEquals('junit3 Error message::', 'java.lang.ArithmeticException: / by zero', l:errorsDict.quickfixList[0].text)
+    call a:testR.AssertEquals('junit3 m3 lineNumber :', 69, l:errorsDict.lineNumber)
+    call a:testR.AssertEquals('junit3 m3 error count:', 3, len(l:errorsDict.quickfixList))
+    call a:testR.AssertEquals('junit3 m3 Source file rowNum:', 35, l:errorsDict.quickfixList[0].lnum)
+    call a:testR.AssertEquals('junit3 m3 Source file colNum:', '', l:errorsDict.quickfixList[0].col)
+    call a:testR.AssertEquals('junit3 m3 Error message::', 'java.lang.ArithmeticException: / by zero', l:errorsDict.quickfixList[0].text)
+    "test mvn v2 output
+    let l:testFile = s:mvn_scriptDir.'/plugin/test/maven2junit3.out'
+    let l:testList = readfile(l:testFile)
+    let l:junit3Plugin = s:Junit3Plugin.New()
+    call l:junit3Plugin.setOutputList(l:testList)
+    let l:errorsDict = l:junit3Plugin.processAtLine(22)
+    call a:testR.AssertEquals('junit3 m2 lineNumber :', 52, l:errorsDict.lineNumber)
+    call a:testR.AssertEquals('junit3 m2 error count:', 3, len(l:errorsDict.quickfixList))
+    call a:testR.AssertEquals('junit3 m2 Source file rowNum:', 35, l:errorsDict.quickfixList[0].lnum)
+    call a:testR.AssertEquals('junit3 m2 Source file colNum:', '', l:errorsDict.quickfixList[0].col)
+    call a:testR.AssertEquals('junit3 m2 Error message::', 'java.lang.ArithmeticException: / by zero', l:errorsDict.quickfixList[0].text)
 endfunction "}}} TestJunitPlugin
 function! s:TestCheckStylePlugin(testR) "{{{ TestCheckStylePlugin
     let l:checkStyleTestFile = s:mvn_scriptDir.'/plugin/test/checkstyle.out'
@@ -2451,14 +2503,39 @@ function! s:TestDependencies(dummy) "{{{
     endif
 endfunction; "}}}
 function! s:TestSetup() "{{{
+    if exists('g:mvn_isTest')
+        let s:orig_mvn_isTest = g:mvn_isTest
+    endif
+    if exists('g:mvn_javaSourcePath')
+        let s:orig_mvn_javaSourcePath = g:mvn_javaSourcePath
+    endif
+    if exists('g:mvn_currentPrjDict')
+        let s:orig_mvn_currentPrjDict = g:mvn_currentPrjDict
+    endif
+    if exists('&path')
+        let s:origPath = &path
+    endif
     let s:mvnTmpTestDir = s:mvn_tmpdir."/mvn-ide-test"
     call system("mkdir -p ".s:mvnTmpTestDir)
 endfunction; "}}}
 function! s:TestTearDown() "{{{
     call system("rm -r ".s:mvnTmpTestDir)
     unlet s:mvnTmpTestDir
-    if exists('g:mvn_currentPrjDict')
-        unlet g:mvn_currentPrjDict
+    if exists('s:orig_mvn_isTest')
+        let g:mvn_isTest = s:orig_mvn_isTest
+        unlet s:orig_mvn_isTest
+    endif
+    if exists('s:orig_mvn_javaSourcePath')
+        let g:mvn_javaSourcePath = s:orig_mvn_javaSourcePath
+        unlet s:orig_mvn_javaSourcePath
+    endif
+    if exists('s:orig_mvn_currentPrjDict')
+        let g:mvn_currentPrjDict = s:orig_mvn_currentPrjDict
+        unlet s:orig_mvn_currentPrjDict
+    endif
+    if exists('s:origPath')
+        let &path = s:origPath
+        unlet s:origPath
     endif
 endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
