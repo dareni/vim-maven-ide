@@ -112,9 +112,8 @@ function! MvnInsertProjectTree(projPath) "{{{
     let s:mvn_defaultProject = l:mvnProjectPath
 
     let l:cmd = "find ".l:mvnProjectPath." -name pom.xml -print"
-    let l:pomList = split(system(l:cmd))
-    call sort(l:pomList)
-    call reverse(l:pomList) "Build the dependencies first.
+    let l:tmpPomList = split(system(l:cmd))
+    let l:pomList = sort(l:tmpPomList, function("MvnDirectorySort"))
 
     "Does all the work.
     let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
@@ -891,6 +890,33 @@ function! MvnGetPathsFromPrjDict(prjIdPomDict, idList, attribute) "{{{
     let l:dirPath = join(l:dirs, ":")
     return l:dirPath
 endfunction; "}}} body }}}
+
+function! MvnDirectorySort(dir1, dir2) "{{{
+"sort() Funcref to sort directories and their children in the required order 
+"for the project tree build. ie Parent directories must be ordered before
+"their children.
+"return - 0 when equal, 
+"         1 if dir1 sorts after dir2,
+"         -1 if dir1 sorts before dir2.
+    "Compare the number of '/'
+    let l:pos1 = match(a:dir1, '/')
+    let l:pos2 = match(a:dir2, '/')
+
+    if match(a:dir1, '/') == 0 && match(a:dir2, '/') == 0
+        let l:dirCount1 = len(a:dir1) - len(substitute(a:dir1, '/', '', 'g'))
+        let l:dirCount2 = len(a:dir2) - len(substitute(a:dir2, '/', '', 'g'))
+        if l:dirCount1 > l:dirCount2
+            return 1
+        elseif l:dirCount1 < l:dirCount2
+            return -1
+        endif
+    endif
+    let l:tmpSorted = sort([a:dir1, a:dir2])
+    if l:tmpSorted[0] == a:dir1
+        return -1
+    endif
+    return 1 
+endfunction; "}}}
 
 function! MvnGetProjectHomeDir() "{{{
 "return - the absolute path for the project ie where the pom.xml is.
@@ -2442,6 +2468,19 @@ function! s:TestSetTestEnv(testR) "{{{
     call a:testR.AssertEquals('TestSetTestEnv5: ', s:mvnTmpTestDir.'/a/b/d/**,', &path)
     call a:testR.AssertEquals('TestSetTestEnv6: ', s:mvnTmpTestDir.'/a/b/tags-t,', &tags)
 endfunction; "}}}
+function! s:TestMvnDirectorySort(testR) "{{{
+"0 -equal, 1 - dir1 sorts after dir2, -1 - dir1 sorts before dir2.
+    let l:ret = MvnDirectorySort('/a/b/c/p', '/a/b/c/d/e')
+    call a:testR.AssertEquals('MvnDirectorySort1', -1, l:ret)
+    let l:ret = MvnDirectorySort('/a/b/c/d/e', '/a/b/c/p')
+    call a:testR.AssertEquals('MvnDirectorySort2', 1, l:ret)
+    let l:ret = MvnDirectorySort('/a/b/c', '/a/b/c')
+    call a:testR.AssertEquals('MvnDirectorySort3', -1, l:ret)
+    let l:Fn = function("MvnDirectorySort")
+    let l:tmpList = sort(['/a/b/c/p', '/a/b/p', '/a/b/c/d', '/a'], l:Fn)
+    let l:expected =['/a', '/a/b/p', '/a/b/c/d', '/a/b/c/p']
+    call a:testR.AssertEquals('MvnDirectorySort4', l:expected, l:tmpList)
+endfunction "}}}
 function! s:TestIsTestSrc(testR) "{{{
     if !exists('g:proj_running')
         throw "Please run :Project before the test execution."
@@ -2563,6 +2602,7 @@ function! MvnRunTests() "{{{ MvnRunTests
     call s:TestIsTestSrc(l:testR)
     call s:TestSetTestEnv(l:testR)
     call s:TestGetClassFromFilename(testR)
+    call s:TestMvnDirectorySort(testR)
     call s:TestProjTreeBuild(l:testR)
     call s:TestCreatePomDict(l:testR)
     call s:TestGetPomId(l:testR)
@@ -2713,6 +2753,7 @@ elseif s:mvn_kernel == "Linux"
    let s:mvn_tagprg = "ctags"
 endif
 let s:mvn_tmpdir = resolve("/tmp")."/".$USER
+call system("mkdir -p ".s:mvn_tmpdir)
 let s:mvn_defaultProject = ""
 let s:mvn_scriptFile = expand("<sfile>")
 let s:mvn_scriptDir = strpart(s:mvn_scriptFile, 0,
