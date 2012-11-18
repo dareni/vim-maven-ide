@@ -1,0 +1,112 @@
+[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Building Encompass Domain
+[INFO]    task-segment: [clean, install]
+[INFO] ------------------------------------------------------------------------
+[INFO] [clean:clean {execution: default-clean}]
+[INFO] Deleting directory /usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/target
+[INFO] [resources:resources {execution: default-resources}]
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 0 resource
+[INFO] [compiler:compile {execution: default-compile}]
+[INFO] Compiling 19 source files to /usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/target/classes
+[INFO] Setting property: classpath.resource.loader.class => 'org.codehaus.plexus.velocity.ContextClassLoaderResourceLoader'.
+[INFO] Setting property: velocimacro.messages.on => 'false'.
+[INFO] Setting property: resource.loader => 'classpath'.
+[INFO] Setting property: resource.manager.logwhenfound => 'false'.
+[INFO] ************************************************************** 
+[INFO] Starting Jakarta Velocity v1.4
+[INFO] RuntimeInstance initializing.
+[INFO] Default Properties File: org/apache/velocity/runtime/defaults/velocity.properties
+[INFO] Default ResourceManager initializing. (class org.apache.velocity.runtime.resource.ResourceManagerImpl)
+[INFO] Resource Loader Instantiated: org.codehaus.plexus.velocity.ContextClassLoaderResourceLoader
+[INFO] ClasspathResourceLoader : initialization starting.
+[INFO] ClasspathResourceLoader : initialization complete.
+[INFO] ResourceCache : initialized. (class org.apache.velocity.runtime.resource.ResourceCacheImpl)
+[INFO] Default ResourceManager initialization complete.
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Literal
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Macro
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Parse
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Include
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Foreach
+[INFO] Created: 20 parsers.
+[INFO] Velocimacro : initialization starting.
+[INFO] Velocimacro : adding VMs from VM library template : VM_global_library.vm
+[ERROR] ResourceManager : unable to find resource 'VM_global_library.vm' in any resource loader.
+[INFO] Velocimacro : error using  VM library template VM_global_library.vm : org.apache.velocity.exception.ResourceNotFoundException: Unable to find resource 'VM_global_library.vm'
+[INFO] Velocimacro :  VM library template macro registration complete.
+[INFO] Velocimacro : allowInline = true : VMs can be defined inline in templates
+[INFO] Velocimacro : allowInlineToOverride = false : VMs defined inline may NOT replace previous VM definitions
+[INFO] Velocimacro : allowInlineLocal = false : VMs defined inline will be  global in scope if allowed.
+[INFO] Velocimacro : initialization complete.
+[INFO] Velocity successfully started.
+[INFO] [checkstyle:checkstyle {execution: default}]
+[INFO] Starting audit...
+Audit done.
+
+[WARNING] Unable to locate Source XRef to link to - DISABLED
+[INFO] Preparing checkstyle:check
+[INFO] [checkstyle:checkstyle {execution: checkstyle}]
+[INFO] Starting audit...
+Audit done.
+
+[WARNING] Unable to locate Source XRef to link to - DISABLED
+[INFO] [checkstyle:check {execution: default}]
+[INFO] [resources:testResources {execution: default-testResources}]
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 0 resource
+[INFO] [compiler:testCompile {execution: default-testCompile}]
+[INFO] Compiling 2 source files to /usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/target/test-classes
+[INFO] ------------------------------------------------------------------------
+[ERROR] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Compilation failure
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[6,45] package com.encompass.domain.inventory.wrapper does not exist
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/ProductUtilsTest.java:[162,40] <anonymous com.encompass.domain.ProductUtilsTest$1> is not abstract and does not override abstract method getClassStyleCompound(com.encompass.data.Products) in com.encompass.service.Service
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/ProductUtilsTest.java:[339,46] <anonymous com.encompass.domain.ProductUtilsTest$2> is not abstract and does not override abstract method getClassStyleCompound(com.encompass.data.Products) in com.encompass.service.Service
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/ProductUtilsTest.java:[518,46] <anonymous com.encompass.domain.ProductUtilsTest$3> is not abstract and does not override abstract method getClassStyleCompound(com.encompass.data.Products) in com.encompass.service.Service
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/ProductUtilsTest.java:[827,46] <anonymous com.encompass.domain.ProductUtilsTest$4> is not abstract and does not override abstract method getClassStyleCompound(com.encompass.data.Products) in com.encompass.service.Service
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/ProductUtilsTest.java:[996,46] <anonymous com.encompass.domain.ProductUtilsTest$5> is not abstract and does not override abstract method getClassStyleCompound(com.encompass.data.Products) in com.encompass.service.Service
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[35,14] cannot find symbol
+symbol  : class CompoundProductWrapper
+location: class com.encompass.domain.inventory.InventoryUtilsTest
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[35,47] cannot find symbol
+symbol  : class CompoundProductWrapper
+location: class com.encompass.domain.inventory.InventoryUtilsTest
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[40,10] cannot find symbol
+symbol  : method setLimitDate(java.util.Date)
+location: class com.encompass.domain.inventory.InventoryDetail
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[42,10] cannot find symbol
+symbol  : method setProduct(com.encompass.data.Products)
+location: class com.encompass.domain.inventory.InventoryDetail
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[53,10] cannot find symbol
+symbol  : method setLimitDate(java.util.Date)
+location: class com.encompass.domain.inventory.InventoryDetail
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[57,10] cannot find symbol
+symbol  : method setLimitDate(java.util.Date)
+location: class com.encompass.domain.inventory.InventoryDetail
+
+/usr/home/daren/work/svn-repos/dev/darenDev/encompass/common/domain/src/test/java/com/encompass/domain/inventory/InventoryUtilsTest.java:[64,10] cannot find symbol
+symbol  : method setLimitDate(java.util.Date)
+location: class com.encompass.domain.inventory.InventoryDetail
+
+
+[INFO] ------------------------------------------------------------------------
+[INFO] For more information, run Maven with the -e switch
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 15 seconds
+[INFO] Finished at: Wed Nov 07 09:52:16 EST 2012
+[INFO] Final Memory: 16M/53M
+[INFO] ------------------------------------------------------------------------

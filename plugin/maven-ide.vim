@@ -1,7 +1,7 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Fri Oct  5 21:34:03 EST 2012
+" Last Change: Sun Nov 18 20:55:18 EST 2012
 " Version:     0.5
 "=============================================================================
 " See documentation in accompanying help file.
@@ -90,7 +90,7 @@ endfunction; "}}} body }}}
 function! MvnInsertProjectTree(projPath) "{{{
 "Build the project tree text for a maven project.
 "a:projPath - non empty string turns off the prompt for unit test.
-    let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
+    let l:prjIdPomFilename = MvnGetPrjIdPomFilename(1)
     if strlen(a:projPath) > 0
         let l:mvnProjectPath= a:projPath
     else
@@ -442,16 +442,16 @@ endfunction; "}}} 2
 "}}} tree build functions
 
 "{{{ project utils
-function! MvnGetPrjIdPomFilename() "{{{
+function! MvnGetPrjIdPomFilename(checkCurrentBuffer) "{{{
 "Check the current window is the project window.
 "{{{ body
     if !exists('g:proj_running')
         throw "Is project running? Activate with ':Project'."
     endif
-    if bufnr('%') != g:proj_running
+    if a:checkCurrentBuffer == 1 && bufnr('%') != g:proj_running
         throw "Please select the project window."
     endif
-    let l:prjIdPomFilename= bufname('%')."-mvn-ide"
+    let l:prjIdPomFilename= bufname(g:proj_running)."-mvn-ide"
     return  l:prjIdPomFilename
 endfunction; "}}} body }}}
 "}}} project utils
@@ -658,7 +658,7 @@ endfunction; "}}} 3 }}} 2
 function! MvnRefreshPrjIdPomDict() "{{{
 "Refresh the prjPomDict for each selected project(s).
 "{{{ body
-    let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
+    let l:prjIdPomFilename = MvnGetPrjIdPomFilename(1)
     let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
     let l:dirList = MvnGetProjectDirList("", 0)
     for dir in l:dirList
@@ -676,28 +676,28 @@ function! MvnRefreshPrjIdPomDict() "{{{
     call MvnSetPrjIdPomDict(l:prjIdPomFilename, l:prjIdPomDict)
 endfunction; "}}} body }}}
 
-function! MvnBuildEnvSelection() "{{{
+function! MvnCreateEnvSelection() "{{{
 "Build the environment for the consecutive project entries.
 "{{{ body
-    let l:prjIdPomFilename = MvnGetPrjIdPomFilename()
+    let l:prjIdPomFilename = MvnGetPrjIdPomFilename(1)
     let l:dirList = MvnGetProjectDirList("", 0)
     let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
     "echo("Calculate the jdk runtime library using java -verbose -h.")
     let l:jreLib = MvnGetJreRuntimeLib()
     for dir in l:dirList
         try
-            call MvnBuildEnv(dir, l:prjIdPomDict, l:jreLib)
+            call MvnCreateEnv(dir, l:prjIdPomDict, l:jreLib)
         catch /No classpath/
-            echo "MvnBuildEnv - ".l:dir." No classpath."
+            echo "MvnCreateEnv - ".l:dir." No classpath."
         catch /.*/
-            echo "MvnBuildEnvSelection error processing".
+            echo "MvnCreateEnvSelection error processing".
                 \dir." ".v:exception." ".v:throwpoint
         endtry
     endfor
     call MvnSetPrjIdPomDict(l:prjIdPomFilename, l:prjIdPomDict)
 endfunction; "}}} body }}}
 
-function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
+function! MvnCreateEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
 "Build the project in.vim sourced on access to a file in the project.
 "Environment generated: g:vjde_lib_path, g:mvn_javadocPath,
 "    g:mvn_javaSourcePath, g:mvn_currentPrjDict, path, tags.
@@ -774,8 +774,8 @@ function! MvnBuildEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
     "echo("Build tag files for all available source files.")
     let l:tagPath =  MvnBuildTags(l:prjPomDict['id'], l:javaSourcePath, l:projectIdList, a:prjIdPomDict)
     let l:newline = "let &tags=\"".l:tagPath."\""
-    call MvnUpdateFile(l:projectHomePath."/in.vim", "tags", l:newline)
-    echo "MvnBuildEnv Complete - ".l:projectHomePath." ".eval(localtime() - l:startTime)."s"
+    call MvnUpdateFile(l:projectHomePath."/in.vim", "let &tags=", l:newline)
+    echo "MvnCreateEnv Complete - ".l:projectHomePath." ".eval(localtime() - l:startTime)."s"
     return a:prjIdPomDict
 endfunction; "}}} body }}}
 
@@ -892,16 +892,13 @@ function! MvnGetPathsFromPrjDict(prjIdPomDict, idList, attribute) "{{{
 endfunction; "}}} body }}}
 
 function! MvnDirectorySort(dir1, dir2) "{{{
-"sort() Funcref to sort directories and their children in the required order 
+"sort() Funcref to sort directories and their children in the required order
 "for the project tree build. ie Parent directories must be ordered before
 "their children.
-"return - 0 when equal, 
+"return - 0 when equal,
 "         1 if dir1 sorts after dir2,
 "         -1 if dir1 sorts before dir2.
     "Compare the number of '/'
-    let l:pos1 = match(a:dir1, '/')
-    let l:pos2 = match(a:dir2, '/')
-
     if match(a:dir1, '/') == 0 && match(a:dir2, '/') == 0
         let l:dirCount1 = len(a:dir1) - len(substitute(a:dir1, '/', '', 'g'))
         let l:dirCount2 = len(a:dir2) - len(substitute(a:dir2, '/', '', 'g'))
@@ -911,11 +908,35 @@ function! MvnDirectorySort(dir1, dir2) "{{{
             return -1
         endif
     endif
-    let l:tmpSorted = sort([a:dir1, a:dir2])
-    if l:tmpSorted[0] == a:dir1
-        return -1
+    "alphabetical sort
+    let l:lenDir1 = len(a:dir1)
+    let l:lenDir2 = len(a:dir2)
+    if l:lenDir1 < l:lenDir2
+        let l:lenDir = l:lenDir1
+        let l:ret = 1
+    else
+        let l:lenDir = l:lenDir2
+        let l:ret = -1
     endif
-    return 1 
+    let l:indx = 0
+    while (l:indx < l:lenDir)
+        if len(a:dir1) > l:indx
+            if strpart(a:dir1, l:indx, 1) > strpart(a:dir2, l:indx, 1)
+                return 1
+            elseif strpart(a:dir1, l:indx, 1) < strpart(a:dir2, l:indx, 1)
+                return -1
+            endif
+        else
+            return l:ret
+        endif
+        let l:indx += 1
+    endwhile
+    "This sort crashes vim?? replaced by alphabetical sort above.
+    "let l:tmpSorted = sort([a:dir1, a:dir2])
+    "if l:tmpSorted[0] == a:dir1
+    "    return -1
+    "endif
+    return l:ret
 endfunction; "}}}
 
 function! MvnGetProjectHomeDir() "{{{
@@ -963,18 +984,18 @@ endfunction; "}}}
 function! MvnUpdateFile(filename, id, newline) "{{{
 "Update the in.vim Project file. Lookup the line by a:id ie the environment
 "  variable name and replace with a:newline. If an entry for the variable
-"  does not exist in the file then add it. The MvnSetTestEnv call must be on
+"  does not exist in the file then add it. The MvnSetEnv call must be on
 "  the last line.
     if filereadable(a:filename)
         let l:lines = readfile(a:filename)
-        let l:lineNo = match(l:lines, 'MvnSetTestEnv')
+        let l:lineNo = match(l:lines, 'MvnSetEnv')
         if l:lineNo == -1
-            call add(l:lines,'call MvnSetTestEnv()')
+            call add(l:lines,'call MvnSetEnv()')
         elseif l:lineNo != (len(l:lines) - 1)
             call add(l:lines, remove(l:lines, l:lineNo))
         endif
     else
-        let l:lines = ['call MvnSetTestEnv()']
+        let l:lines = ['call MvnSetEnv()']
     endif
     let l:lineNo = match(l:lines, a:id)
     if l:lineNo >= 0
@@ -1003,6 +1024,16 @@ function! MvnLoadPrjPomDict(filename) "{{{
         endif
     endif
     return l:prjPomDict
+endfunction; "}}}
+
+function! MvnGetInVimSetting(filename, setting) "{{{
+    "TODO move to env fold.
+    let l:lines = readfile(a:filename)
+    let l:lineNo = match(l:lines, a:setting)
+    let l:settingLine = l:lines[l:lineNo]
+    let l:pos = matchend(l:settingLine, '=')
+    let l:setting = strpart(l:settingLine, l:pos)
+    return l:setting
 endfunction; "}}}
 "}}} Environment config -------------------------------------------------------
 
@@ -1051,6 +1082,7 @@ endfunction "}}} processAtLine }}} mavenProcessorParent
 
 let s:Mvn2Plugin = {} "{{{ maven2Plugin
 function! s:Mvn2Plugin.New()
+" For maven2 compiler 2.5
    let this = copy(self)
    let super = s:MvnPlugin.New()
    call extend(this, deepcopy(super), "keep")
@@ -1058,6 +1090,8 @@ function! s:Mvn2Plugin.New()
    call this.addStartRegExp('^\[INFO\] -\+')
    call this.addStartRegExp('^\[INFO\] Compilation failure')
    return this
+endfunction
+function! MvnXXX()
 endfunction
 function! s:Mvn2Plugin.processErrors() "{{{ processErrors
 "return dict { lineNumber, quickfixList }
@@ -1073,25 +1107,38 @@ function! s:Mvn2Plugin.processErrors() "{{{ processErrors
             let l:line = self._mvnOutputList[l:lineNo]
             try
                 if len(l:line) == 0
-                    let l:lineNo += 1
-                    continue
+                    "blank line
+                elseif match(l:line, 'location: ') == 0 ||
+                    \match(l:line, 'symbol  : ') == 0
+                    let l:pos = len(l:quickfixList)
+                    if l:pos > 0
+                        let l:fixDict = l:quickfixList[l:pos - 1]
+                        if has_key(l:fixDict, 'text')
+                            let l:errorMsg = l:fixDict['text'].' '. l:line
+                            let l:fixDict['text'] = l:errorMsg
+                        else
+                            echo 'Parse error: no quickfix text??'
+                        endif
+                    else
+                        echo 'Parse error: empty quickfixList??'
+                    endif
+                else
+                    let l:posStart = 0
+                    let l:posEnd = match(l:line, ':')
+                    let l:filename = strpart(l:line, l:posStart, l:posEnd-l:posStart)
+                    let l:posStart = l:posEnd + 2
+                    let l:posEnd = match(l:line, ',', l:posStart)
+                    let l:errorLineNo = strpart(l:line, l:posStart, l:posEnd-l:posStart)
+                    let l:posStart = l:posEnd + 1
+                    let l:posEnd = match(l:line, ']', l:posStart)
+                    let l:errorColNo = strpart(l:line, l:posStart, l:posEnd-l:posStart)
+                    let l:posStart = l:posEnd + 2
+                    let l:message = strpart(l:line, l:posStart)
+                    let l:fixDict = {'bufnr': '', 'filename': l:filename,
+                        \'lnum': l:errorLineNo, 'pattern': '', 'col': l:errorColNo,
+                        \'vcol': '', 'nr': '', 'text': message, 'type': 'E'}
+                    call add(l:quickfixList, l:fixDict)
                 endif
-                let l:posStart = 0
-                let l:posEnd = match(l:line, ':')
-                let l:filename = strpart(l:line, l:posStart, l:posEnd-l:posStart)
-                let l:posStart = l:posEnd + 2
-                let l:posEnd = match(l:line, ',', l:posStart)
-                let l:errorLineNo = strpart(l:line, l:posStart, l:posEnd-l:posStart)
-                let l:posStart = l:posEnd + 1
-                let l:posEnd = match(l:line, ']', l:posStart)
-                let l:errorColNo = strpart(l:line, l:posStart, l:posEnd-l:posStart)
-                let l:posStart = l:posEnd + 2
-                let l:message = strpart(l:line, l:posStart)
-                let l:fixList = {'bufnr': '', 'filename': l:filename,
-                    \'lnum': l:errorLineNo, 'pattern': '', 'col': l:errorColNo,
-                    \'vcol': '', 'nr': '', 'text': message, 'type': 'E'}
-
-                call add(l:quickfixList, l:fixList)
                 let l:lineNo += 1
             catch /notErrorLine/
                 let l:exception=1
@@ -1107,6 +1154,7 @@ endfunction "}}} processErrors }}} maven2Plugin
 
 let s:Mvn3Plugin = {} "{{{ maven3Plugin
 function! s:Mvn3Plugin.New()
+" For maven3 compiler 2.5
     let this = copy(self)
     let super = s:MvnPlugin.New()
     call extend(this, deepcopy(super), "keep")
@@ -1141,11 +1189,11 @@ function! s:Mvn3Plugin.processErrors() "{{{ processErrors
                 let l:posStart = l:posEnd + 2
                 let l:message = strpart(l:line, l:posStart)
 
-                let l:fixList = {'bufnr': '', 'filename': l:filename,
+                let l:fixDict = {'bufnr': '', 'filename': l:filename,
                     \'lnum': l:errorLineNo, 'pattern': '', 'col': l:errorColNo,
                     \'vcol': '', 'nr': '', 'text': message, 'type': 'E'}
 
-                call add(l:quickfixList, l:fixList)
+                call add(l:quickfixList, l:fixDict)
 
             catch /notErrorLine/
                 let l:exception=1
@@ -1170,6 +1218,7 @@ endfunction "}}} junitPlugin
 
 let s:Junit3Plugin = {} "{{{ junit3Plugin
 function! s:Junit3Plugin.New()
+" For version 3.8.2
     let this= copy(self)
     let super = s:JunitPlugin.New()
     call extend(this, deepcopy(super), "keep")
@@ -1267,22 +1316,26 @@ function! s:Junit3Plugin.doFailure(lineNo, finishLineNo)
     if len(l:absoluteFilename) == 0
         echo 'Can not find '.l:filename
     endif
-    let l:fixList = {'bufnr': '', 'filename': l:absoluteFilename,
+    let l:fixDict = {'bufnr': '', 'filename': l:absoluteFilename,
         \'lnum': l:errorLineNo, 'pattern': '', 'col': '',
        \'vcol': '', 'nr': '', 'text': message, 'type': 'E'}
 
-    return {'lineNo': l:failFinishLine, 'fixList': l:fixList }
+    return {'lineNo': l:failFinishLine, 'fixList': l:fixDict }
 endfunction "}}} processErrors }}} junit3Plugin
 
-let s:CheckStylePlugin = {} "{{{ checkStylePlugin
-function! s:CheckStylePlugin.New()
+let s:CheckStyle22Plugin = {} "{{{ checkStylePlugin
+function! s:CheckStyle22Plugin.New()
+"For maven plugin:
+"  <groupId>org.apache.maven.plugins</groupId>
+"  <artifactId>maven-checkstyle-plugin</artifactId>
+"  <version>2.2</version>
     let this = copy(self)
     let super = s:MvnPlugin.New()
     call extend(this, deepcopy(super), "keep")
     call this.addStartRegExp('^\[INFO\] Starting audit...')
     return this
 endfunction
-function! s:CheckStylePlugin.processErrors() "{{{ processErrors
+function! s:CheckStyle22Plugin.processErrors() "{{{ processErrors
 "return dict { lineNumber, quickfixList }
 "   quickfixList of dict : {bufnr, filename, lnum, pattern, col, vcol, nr, text, type}
     let l:ret = {'lineNumber': self._currentLine, 'quickfixList': []}
@@ -1313,11 +1366,11 @@ function! s:CheckStylePlugin.processErrors() "{{{ processErrors
 
                 let l:message = strpart(l:line, l:posStart + 1)
 
-                let l:fixList = {'bufnr': '', 'filename': l:filename,
+                let l:fixDict = {'bufnr': '', 'filename': l:filename,
                     \'lnum': l:errorLineNo, 'pattern': '', 'col': l:errorColNo,
                     \'vcol': '', 'nr': '', 'text': message, 'type': 'E'}
 
-                call add(l:quickfixList, l:fixList)
+                call add(l:quickfixList, l:fixDict)
 
             catch /notErrorLine/
                 let l:exception=1
@@ -1410,6 +1463,7 @@ function! MvnCompileProcessOutput(mvnOutput) "{{{
     let l:lineNo = 0
     while l:lineNo < l:outSize
         for plugin in s:plugins
+            call MvnXXX()
             let processResult = plugin.processAtLine(l:lineNo)
             if processResult.lineNumber != l:lineNo
                 let l:lineNo = processResult.lineNumber
@@ -1475,22 +1529,39 @@ function! MvnIsTestSrc(srcFile, prjPomDict) "{{{
     return l:isTest
 endfunction; "}}}
 
-function! MvnSetTestEnv(...) "{{{
+function! MvnSetEnv(...) "{{{
 "Invoked from the project in.vim scripts to set the environment
-"for test source.  Setter of the g:mvn_isTest flag.
+"for test source and debugging.  Setter of the g:mvn_isTest flag.
     if a:0 == 0
         let l:srcFile = expand('%:p')
+        let l:ext = expand('%:e')
         let l:prjPomDict = g:mvn_currentPrjDict
     else
         "test case
         let l:srcFile = a:1
         let l:prjPomDict = a:2
+        let l:ext = a:3
     endif
     if MvnIsTestSrc(srcFile, l:prjPomDict)
         call MvnDoSetTestEnv(l:prjPomDict)
         let g:mvn_isTest = 1
     else
         let g:mvn_isTest = 0
+    endif
+    if l:ext == "js"
+        "run in projecthome ie:
+        "jsctags `pwd`/src/main/webapp/script/ext-js -f tags-script
+        "remove \r from the end of the lines
+        ":%s/\\r$\/;/$\/;
+        let l:jstags = g:mvn_currentPrjDict['home'].'/tags-script'
+        if filereadable(l:jstags)
+            let &tags = l:jstags
+        endif
+    endif
+    if exists('*VDBIsConnected')
+        if VDBIsConnected()
+            let &path = g:mvn_debugpath
+        endif
     endif
 endfunction; "}}}
 
@@ -1513,6 +1584,14 @@ endfunction; "}}}
 
 "{{{ Debugging ----------------------------------------------------------------
 function! MvnDoDebug() "{{{
+"Set the debug environment and run the debugger. Allow selection of the debug
+"target from a list. The default target is the current file. g:mvn_debugPortList
+"may be configured for additional debug targets.
+"
+"Set g:mvn_debugpath so the &path may be adjusted allowing stepping out of a
+"source file in a low level dependency back to a source file at a higher
+"dependency level.
+"
 "<F3> Run
 "<C-F5> Run Application
 "<F5> Continue Execution
@@ -1526,30 +1605,26 @@ function! MvnDoDebug() "{{{
 "   let l:debugger = '!xterm \"yavdb -s DEBUG -t jdb\"'
 
 "tomcat debug options:   -agentlib:jdwp=transport=dt_socket,server=y,address=11550,suspend=n
-
 " jdb -sourcepath -attach 11550
+"
     if strlen(v:servername) == 0
         echo "No servername!"
     else
+        if !exists('*VDBIsConnected')
+            echo "Patch not applied to yavdb."
+        endif
+        call s:TestExecutable('yavdb')
+
         "Is the source file in the project?
         let l:srcFile = expand('%:p')
         let l:prjPomDict = g:mvn_currentPrjDict
-        let l:classPath =  g:vjde_lib_path
-        let l:isTest = g:mvn_isTest
         call MvnIsTestSrc(l:srcFile, l:prjPomDict)
 
-        "Prompt for the debug port number.
-        let l:debugSelectionList=[]
-        let l:firstOption = "0: Run and debug current file port:"
-        let l:firstOption .= g:mvn_debugPortList[0]
-        call add(l:debugSelectionList, l:firstOption)
+        let l:classPath =  g:vjde_lib_path
+        let l:isTest = g:mvn_isTest
 
-        let l:count = 1
-        for port in g:mvn_debugPortList
-            call add(l:debugSelectionList, l:count . ") connect to " . port .".")
-            let l:count += 1
-        endfor
-
+        "Prompt for the debug host/port number.
+        let l:debugSelectionList = MvnGetDebugTargetList()
         call inputsave()
         let l:SelectedOption= inputlist(l:debugSelectionList)
         call inputrestore()
@@ -1559,10 +1634,12 @@ function! MvnDoDebug() "{{{
         endif
 
         let l:host = ''
+        let l:tmpSourcePath = g:mvn_javaSourcePath
         if l:SelectedOption == 0
             let l:port = g:mvn_debugPortList[0]
             call MvnRunDebugProcess(l:port, l:classPath,
                 \l:isTest, expand('%:p'), l:prjPomDict)
+            let g:mvn_debugpath = &path
         else
             let l:portHostList = split(g:mvn_debugPortList[l:SelectedOption-1], ':')
             if len(l:portHostList) == 1
@@ -1573,14 +1650,100 @@ function! MvnDoDebug() "{{{
             else
                 throw "Invalid host:port ". join(l:portHostList, ":")
             endif
+            if l:isTest == 1
+                "Store the path for the current project.
+                let g:mvn_debugpath = &path
+            else
+                "Who knows what parent source code we will need to step into from the
+                "current file.  So build a list of parent project dependant on the
+                "current file. Prompt for selection of the parent project.
+                let l:prjIdPomFilename = MvnGetPrjIdPomFilename(0)
+                let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
+                let l:projectSelectionList = MvnGetParentProjects(
+                    \l:prjPomDict, l:prjIdPomDict)
+                if len(l:projectSelectionList) > 0
+                    let l:selectedId = MvnGetSelectedProject(l:projectSelectionList)
+                    "TODO retrieve the in.vim filename via l:selectedId
+                    let l:inVimFilename = l:prjIdPomDict[l:selectedId]['home'].
+                        \'/in.vim'
+                    let g:mvn_debugpath = MvnGetInVimSetting(l:inVimFilename, "&path")
+                    let l:tmpSourcePath = MvnGetInVimSetting(l:inVimFilename, "mvn_javaSourcePath")
+                else
+                    let g:mvn_debugpath = &path
+                endif
+            endif
         endif
 
         "Execute the debugger.
         let l:debugger = "!xterm -T yavdb -e ".s:mvn_scriptDir."/bin/yavdb.sh "
-        let l:debugger .= v:servername . " " . g:mvn_javaSourcePath ." ".l:port." ".l:host
+        let l:debugger .= v:servername . " " . l:tmpSourcePath ." ".l:port." ".l:host
         let l:debugger.= " |tee ".s:mvn_tmpdir."/dbgjdb.out &"
         exec l:debugger
     endif
+endfunction; "}}}
+
+function! MvnGetDebugTargetList() "{{{
+    let l:debugSelectionList=[]
+    let l:firstOption = "0: Run and debug current file port:"
+    let l:firstOption .= g:mvn_debugPortList[0]
+    call add(l:debugSelectionList, l:firstOption)
+
+    let l:count = 1
+    for l:hostPort in g:mvn_debugPortList
+        call add(l:debugSelectionList, l:count . ") connect to " . l:hostPort .".")
+        let l:count += 1
+    endfor
+    return l:debugSelectionList
+endfunction; "}}}
+
+function! MvnGetSelectedProject(projectSelectionList) "{{{
+"Prompt with the list for a selection.
+"Return the project id selected.
+    if len(a:projectSelectionList) > 1
+        call inputsave()
+        redraw
+        let l:selectedOption = inputlist(a:projectSelectionList)
+        call inputrestore()
+        if l:selectedOption > len(a:projectSelectionList) ||
+            \l:selectedOption < 0
+            let l:selectedOption = 1
+        endif
+    else
+        let l:selectedOption = 1
+    endif
+    let l:selection = a:projectSelectionList[l:selectedOption-1]
+    let l:pos = stridx(l:selection, ':')
+    let l:pos = stridx(l:selection, ':', l:pos + 1)
+    let l:selectedId = strpart(l:selection, l:pos + 1)
+    return l:selectedId
+endfunction; "}}}
+
+function! MvnGetParentProjects(prjPomDict, prjIdPomDict) "{{{
+"Find the projects depending on the project containing the current file.
+"   keys: id, created, home, classpath, dependencies, srcMain, srcTest,
+"   classMain, classTest, resrcMain, resrcTest.
+    let l:currentId= a:prjPomDict['id']
+    let l:prjIdList = []
+    let l:prjDirList = []
+    "Build a list of id's dependant on the project.
+    for l:tmpPrjDict in values(a:prjIdPomDict)
+        if has_key(l:tmpPrjDict, 'dependencies')
+            let l:tmpDependencyList = l:tmpPrjDict['dependencies']
+            for l:prjId in l:tmpDependencyList
+                if l:prjId == l:currentId
+                   call add(l:prjIdList, l:tmpPrjDict['id'])
+                endif
+            endfor
+        endif
+    endfor
+    "From the id list build a list of project paths.
+    let l:pathIdList = []
+    let l:count = 1
+    for l:prjId in l:prjIdList
+       call add(l:pathIdList, l:count.':'.a:prjIdPomDict[l:prjId]['home'].':'.l:prjId)
+       let l:count += 1
+    endfor
+    return l:pathIdList
 endfunction; "}}}
 
 function! MvnRunDebugProcess(port, classpath, isTest, filename, prjPomDict) "{{{
@@ -1603,9 +1766,7 @@ endfunction; "}}}
 
 function! MvnGetClassFromFilename(absoluteFilename, prjPomDict) "{{{
 "From the absolute java source file name determine the package class name.
-    "TODO fix s:mvn_project... var usage
     let l:srcFile = a:absoluteFilename
-
     let l:pos = -1
     if has_key(a:prjPomDict, 'srcTest')
         for l:testPath in a:prjPomDict['srcTest']
@@ -1825,7 +1986,7 @@ function! MvnGetArtifactDirName(jarFilename, artifactType) "{{{
     return l:jarDir
 endfunction; "}}} body }}}
 
-function! MvnFindInherits(superclass) "{{{
+function! MvnFindSubclass(superclass) "{{{
 "Search each tag file for implementors of the superclass.
 "{{{ body
     let l:lineno = 1
@@ -1848,7 +2009,7 @@ function! MvnFindInherits(superclass) "{{{
 endfunction; "}}} body }}}
 
 function! MvnPickInherits()  "{{{
-"Show the list of subclasses from the MvnFindInherits search.
+"Show the list of subclasses from the MvnFindSubclass search.
 "{{{ body
     if len(g:inherits) > 0
         call inputsave()
@@ -2115,6 +2276,15 @@ function! s:TestMvn2Plugin(testR) "{{{ TestMvn2Plugin
     call a:testR.AssertEquals('mvn2 Source file rowNum:', 39, l:errorsDict.quickfixList[0].lnum)
     call a:testR.AssertEquals('mvn2 Source file colNum:', 0, l:errorsDict.quickfixList[0].col)
     call a:testR.AssertEquals('mvn2 Error message::', 'illegal start of type', l:errorsDict.quickfixList[0].text)
+    let l:maven2TestFile = s:mvn_scriptDir.'/plugin/test/maven2testError.out'
+    let l:testList = readfile(l:maven2TestFile)
+    let l:mvn2Plugin = s:Mvn2Plugin.New()
+    call l:mvn2Plugin.setOutputList(l:testList)
+    let l:errorsDict = l:mvn2Plugin.processAtLine(60)
+    call a:testR.AssertEquals('mvn2 test error message::', 13, len(l:errorsDict.quickfixList))
+    call a:testR.AssertEquals('mvn2 test error message::', 'cannot find symbol symbol  : '.
+            \'method setLimitDate(java.util.Date) location: '.
+            \'class com.encompass.domain.inventory.InventoryDetail', l:errorsDict.quickfixList[12].text )
 endfunction "}}} TestMvn2Plugin
 function! s:TestMvn3Plugin(testR) "{{{ TestMvn3Plugin
     let l:maven3TestFile = s:mvn_scriptDir.'/plugin/test/maven3.out'
@@ -2158,10 +2328,10 @@ function! s:TestJunitPlugin(testR) "{{{ TestJunitPlugin
     call a:testR.AssertEquals('junit3 m2 Source file colNum:', '', l:errorsDict.quickfixList[0].col)
     call a:testR.AssertEquals('junit3 m2 Error message::', 'java.lang.ArithmeticException: / by zero', l:errorsDict.quickfixList[0].text)
 endfunction "}}} TestJunitPlugin
-function! s:TestCheckStylePlugin(testR) "{{{ TestCheckStylePlugin
+function! s:TestCheckStyle22Plugin(testR) "{{{ TestCheckStyle22Plugin
     let l:checkStyleTestFile = s:mvn_scriptDir.'/plugin/test/checkstyle.out'
     let l:testList = readfile(l:checkStyleTestFile)
-    let l:checkStylePlugin = s:CheckStylePlugin.New()
+    let l:checkStylePlugin = s:CheckStyle22Plugin.New()
     call l:checkStylePlugin.setOutputList(l:testList)
     let l:errorsDict = l:checkStylePlugin.processAtLine(44)
     call a:testR.AssertEquals('checkstyle lineNumber in compiler output:', 110, l:errorsDict.lineNumber)
@@ -2173,15 +2343,15 @@ function! s:TestCheckStylePlugin(testR) "{{{ TestCheckStylePlugin
     call l:checkStylePlugin.setOutputList(l:testList)
     let l:errorsDict = l:checkStylePlugin.processAtLine(47)
     call a:testR.AssertEquals('checkstyle lineNumber in compiler output:', 48, l:errorsDict.lineNumber)
-endfunction "}}} TestCheckStylePlugin
-function! s:TestProjTreeBuild(testR) "{{{ TestProjTreeBuild
+endfunction "}}} TestCheckStyle22Plugin
+function! s:TestBuildProjectTree(testR) "{{{
     let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/test"
     call system("cp -a ".l:mvn_testPrj." ".s:mvnTmpTestDir)
 
     let l:pomList = [s:mvnTmpTestDir.'/test/pom.xml']
     let l:prjIdPomDict = {}
     let l:prjTreeTxt = MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
-    call a:testR.AssertEquals('TestProjTreeBuild:', 18, len(l:prjTreeTxt))
+    call a:testR.AssertEquals('TestBuildProjectTree:', 18, len(l:prjTreeTxt))
     "TODO add test for l:prjIdPomDict and in.vim.
 
     let l:mvn_testPrj = s:mvn_scriptDir."/plugin/test/proj/parent"
@@ -2193,12 +2363,12 @@ function! s:TestProjTreeBuild(testR) "{{{ TestProjTreeBuild
     \ s:mvnTmpTestDir.'/parent/test2/pom.xml',
     \ s:mvnTmpTestDir.'/parent/test3/pom.xml']
     let l:prjTreeTxt = MvnBuildProjectTree(l:pomList, l:prjIdPomDict)
-    call a:testR.AssertEquals('TestProjTreeBuild1:', 56, len(l:prjTreeTxt))
-    call a:testR.AssertEquals('TestProjTreeBuild2:', 4, len(l:prjIdPomDict))
+    call a:testR.AssertEquals('TestBuildProjectTree1:', 56, len(l:prjTreeTxt))
+    call a:testR.AssertEquals('TestBuildProjectTree2:', 4, len(l:prjIdPomDict))
 
     "TODO add test for l:prjIdPomDict and in.vim.
     "call writefile(l:result.prjTreeTxt, '/tmp/mvn.txt')
-endfunction "}}} TestProjTreeBuild
+endfunction "}}}
 function! s:TestMvnIsInList(testR) "{{{ TestMvnIsInList
 "Test object operation.
     let l:ret = MvnIsInList(['a', 'b', 'c'], "a")
@@ -2262,7 +2432,7 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
 
         "position the cursor.
         :2
-        call MvnBuildEnv(l:testHome, {}, '/dummy/jre/path')
+        call MvnCreateEnv(l:testHome, {}, '/dummy/jre/path')
 
         "Check the configuration in in.vim.
         let l:inVimList = readfile(l:testHome.'/in.vim')
@@ -2429,15 +2599,15 @@ function! s:TestUpdateFile(testR) "{{{
     let l:filename = s:mvnTmpTestDir.'/test-in.vim'
     call MvnUpdateFile(l:filename, 'blah', 'blah')
     let l:buf = readfile(l:filename)
-    call a:testR.AssertEquals('TestSetTestEnv0: ', 'blah', l:buf[0])
-    call a:testR.AssertEquals('TestSetTestEnv1: ', 'call MvnSetTestEnv()', l:buf[1])
+    call a:testR.AssertEquals('TestSetEnv0: ', 'blah', l:buf[0])
+    call a:testR.AssertEquals('TestSetEnv1: ', 'call MvnSetEnv()', l:buf[1])
 
     call add(l:buf, remove(l:buf, 0))
     call writefile(l:buf, l:filename)
     call MvnUpdateFile(l:filename, 'blah', 'blah')
     let l:buf = readfile(l:filename)
-    call a:testR.AssertEquals('TestSetTestEnv2: ', 'blah', l:buf[0])
-    call a:testR.AssertEquals('TestSetTestEnv3: ', 'call MvnSetTestEnv()', l:buf[1])
+    call a:testR.AssertEquals('TestSetEnv2: ', 'blah', l:buf[0])
+    call a:testR.AssertEquals('TestSetEnv3: ', 'call MvnSetEnv()', l:buf[1])
 endfunction; "}}}
 function! s:TestGetClassFromFilename(testR) "{{{
     let l:prjDict = {'home': '/opt/prj', 'srcMain': ['/opt/proj/src/main/java'], 'srcTest': ['/opt/proj/src/test/java']}
@@ -2446,7 +2616,7 @@ function! s:TestGetClassFromFilename(testR) "{{{
     let l:result = MvnGetClassFromFilename("/opt/proj/src/test/java/pack/age/Dummy.java", l:prjDict)
     call a:testR.AssertEquals('MvnGetClassFromFilename2 fail:', "pack.age.Dummy", l:result)
 endfunction "}}}
-function! s:TestSetTestEnv(testR) "{{{
+function! s:TestSetEnv(testR) "{{{
     let l:prjPomDict = {'srcMain': [s:mvnTmpTestDir.'/a/b/c'], 'srcTest': [s:mvnTmpTestDir.'/a/b/d'], 'home': s:mvnTmpTestDir.'/a/b', 'classTest': [s:mvnTmpTestDir.'/a/b/target/test']}
     let l:srcFile = s:mvnTmpTestDir.'/a/b/c/d.txt'
     let g:vjde_lib_path = ''
@@ -2455,20 +2625,20 @@ function! s:TestSetTestEnv(testR) "{{{
     let &tags = ''
     let g:mvn_isTest = 1
 
-    call MvnSetTestEnv(l:srcFile, l:prjPomDict)
-    call a:testR.AssertEquals('TestSetTestEnv0: ', 0, g:mvn_isTest)
-    call a:testR.AssertEquals('TestSetTestEnv1: ', '', g:vjde_lib_path.g:mvn_javaSourcePath.&tags)
+    call MvnSetEnv(l:srcFile, l:prjPomDict, 'txt')
+    call a:testR.AssertEquals('TestSetEnv0: ', 0, g:mvn_isTest)
+    call a:testR.AssertEquals('TestSetEnv1: ', '', g:vjde_lib_path.g:mvn_javaSourcePath.&tags)
 
     let l:srcFile = s:mvnTmpTestDir.'/a/b/d/d.txt'
     call system('mkdir -p '.s:mvnTmpTestDir.'/a/b; touch '. s:mvnTmpTestDir.'/a/b/tags-t')
-    call MvnSetTestEnv(l:srcFile, l:prjPomDict)
-    call a:testR.AssertEquals('TestSetTestEnv2: ', 1, g:mvn_isTest)
-    call a:testR.AssertEquals('TestSetTestEnv3: ', s:mvnTmpTestDir.'/a/b/target/test:', g:vjde_lib_path)
-    call a:testR.AssertEquals('TestSetTestEnv4: ', s:mvnTmpTestDir.'/a/b/d:', g:mvn_javaSourcePath)
-    call a:testR.AssertEquals('TestSetTestEnv5: ', s:mvnTmpTestDir.'/a/b/d/**,', &path)
-    call a:testR.AssertEquals('TestSetTestEnv6: ', s:mvnTmpTestDir.'/a/b/tags-t,', &tags)
+    call MvnSetEnv(l:srcFile, l:prjPomDict, 'txt')
+    call a:testR.AssertEquals('TestSetEnv2: ', 1, g:mvn_isTest)
+    call a:testR.AssertEquals('TestSetEnv3: ', s:mvnTmpTestDir.'/a/b/target/test:', g:vjde_lib_path)
+    call a:testR.AssertEquals('TestSetEnv4: ', s:mvnTmpTestDir.'/a/b/d:', g:mvn_javaSourcePath)
+    call a:testR.AssertEquals('TestSetEnv5: ', s:mvnTmpTestDir.'/a/b/d/**,', &path)
+    call a:testR.AssertEquals('TestSetEnv6: ', s:mvnTmpTestDir.'/a/b/tags-t,', &tags)
 endfunction; "}}}
-function! s:TestMvnDirectorySort(testR) "{{{
+function! s:TestDirectorySort(testR) "{{{
 "0 -equal, 1 - dir1 sorts after dir2, -1 - dir1 sorts before dir2.
     let l:ret = MvnDirectorySort('/a/b/c/p', '/a/b/c/d/e')
     call a:testR.AssertEquals('MvnDirectorySort1', -1, l:ret)
@@ -2480,6 +2650,10 @@ function! s:TestMvnDirectorySort(testR) "{{{
     let l:tmpList = sort(['/a/b/c/p', '/a/b/p', '/a/b/c/d', '/a'], l:Fn)
     let l:expected =['/a', '/a/b/p', '/a/b/c/d', '/a/b/c/p']
     call a:testR.AssertEquals('MvnDirectorySort4', l:expected, l:tmpList)
+    let l:tmpList = sort(['/z','/b','/c','/p','/d','/e','/f','/g','/h','/i','/j','/a'], l:Fn)
+    call a:testR.AssertEquals('MvnDirectorySort5', '/a', l:tmpList[0])
+    call a:testR.AssertEquals('MvnDirectorySort6', '/b', l:tmpList[1])
+    call a:testR.AssertEquals('MvnDirectorySort7', '/z', l:tmpList[11])
 endfunction "}}}
 function! s:TestIsTestSrc(testR) "{{{
     if !exists('g:proj_running')
@@ -2536,6 +2710,9 @@ function! s:TestDependencies(dummy) "{{{
     endif
     if len($USER) == 0
         throw 'Environment $USER is required.'
+    endif
+    if !exists('*VDBIsConnected')
+        echo 'yavdb not patched?'
     endif
     if !has('clientserver')
         echo  'No clientserver'
@@ -2594,16 +2771,16 @@ function! MvnRunTests() "{{{ MvnRunTests
     call s:TestPluginObj(l:testR)
     call s:TestMvn2Plugin(l:testR)
     call s:TestMvn3Plugin(l:testR)
-    call s:TestCheckStylePlugin(l:testR)
+    call s:TestCheckStyle22Plugin(l:testR)
     call s:TestJunitPlugin(l:testR)
     "}}} plugin tests
     "{{{ Tree/Env Build
     call s:TestUpdateFile(l:testR)
     call s:TestIsTestSrc(l:testR)
-    call s:TestSetTestEnv(l:testR)
+    call s:TestSetEnv(l:testR)
     call s:TestGetClassFromFilename(testR)
-    call s:TestMvnDirectorySort(testR)
-    call s:TestProjTreeBuild(l:testR)
+    call s:TestDirectorySort(testR)
+    call s:TestBuildProjectTree(l:testR)
     call s:TestCreatePomDict(l:testR)
     call s:TestGetPomId(l:testR)
     call s:TestGetVimInDict(l:testR)
@@ -2678,14 +2855,14 @@ endfunction; "}}} body }}}
 "}}} Coding -------------------------------------------------------------------
 
 "{{{ Key mappings -------------------------------------------------------------
-map \be :call MvnBuildEnvSelection() <RETURN>
+map \ce :call MvnCreateEnvSelection() <RETURN>
 map \bp :call MvnInsertProjectTree("") <RETURN>
 map \bt :call MvnTagCurrentFile() <RETURN>
 map \cf :call MvnCodeFormat() <RETURN>
 map \dd :call MvnDownloadJavadoc() <RETURN>
 map \ds :call MvnDownloadJavaSource() <RETURN>
 map \fc :call MvnFindJavaClass() <RETURN>
-map \gs :call MvnFindInherits(expand("<cword>")) <RETURN>
+map \fs :call MvnFindSubclass(expand("<cword>")) <RETURN>
 map \gt :call MvnJumpToTree() <RETURN>
 map \pc :call MvnPrintCodes() <RETURN>
 map \ps :call MvnPickInherits() <RETURN>
@@ -2705,7 +2882,7 @@ set cfu=VjdeCompletionFun
 "let g:mvn_javaSourcePath = generated into in.vim
 "let &tags = generated into in.vim
 "let &path  = generated into in.vim
-"let g:mvn_isTest = set in MvnSetTestEnv()
+"let g:mvn_isTest = set in MvnSetEnv()
 
 if !exists('g:mvn_javadocParentDir')
     let g:mvn_javadocParentDir = "/opt/work/javadoc"
@@ -2725,14 +2902,11 @@ endif
 if !exists('g:mvn_resourceFilterList')
     let g:mvn_resourceFilterList = ["*.vim", "*.xml", "*.properties", ".vjde"]
 endif
-if !exists('g:mvn_mavenType')
-    let g:mvn_mavenType = "maven3"
-endif
 if !exists('g:mvn_debugPortList')
     let g:mvn_debugPortList = ['8888','11550','dev.localdomain:11550']
 endif
 if !exists('g:mvn_pluginList')
-    let g:mvn_pluginList = ['Mvn3Plugin', 'Junit3Plugin', 'CheckStylePlugin']
+    let g:mvn_pluginList = ['Mvn2Plugin', 'Junit3Plugin', 'CheckStyle22Plugin']
 endif
 if !exists('g:mvn_compilerVersion')
     let g:mvn_compilerVersion = '2.5'

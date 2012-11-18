@@ -127,7 +127,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb.txt ../../yavdb//yavdb.txt
 +vim:ts=4 sw=4 noexpandtab tw=78 ft=help:
 diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
 --- /home/tester/vim/yavdb/yavdb.vim	2007-07-14 08:26:35.000000000 +1000
-+++ ../../yavdb//yavdb.vim	2012-10-13 19:41:36.000000000 +1000
++++ ../../yavdb//yavdb.vim	2012-10-17 13:45:27.000000000 +1000
 @@ -8,8 +8,8 @@
  highlight DebugBreak guibg=darkred    guifg=white ctermbg=darkred    ctermfg=white
  highlight DebugStop  guibg=darkblue   guifg=white ctermbg=darkblue   ctermfg=white
@@ -154,7 +154,16 @@ diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
      if !exists(":Vdb")
        command -nargs=+ Vdb        :call VDBCommand(<q-args>, v:count)
      endif
-@@ -51,14 +48,14 @@
+@@ -46,19 +43,23 @@
+     let s:connected=0
+ endfunction
+
++function! VDBIsConnected()
++    return s:connected
++endfunction
++
+ function! VDBCommand(cmd, ...)
+     " Ignore whitespace
      if match (a:cmd, '^\s*$') != -1
          return
      endif
@@ -172,7 +181,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
      " Send the command
      "silent exec ":redir >>" . s:fifo ."|echon \"" . a:cmd.suff . "\n\"|redir END "
      "silent exec ':!echo "' . a:cmd . suff . '" >> ' . s:fifo
-@@ -68,36 +65,43 @@
+@@ -68,36 +69,43 @@
  endfunction
  
  function! VDBBreakSet(id, file, linenum)
@@ -233,7 +242,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
  endfunction
  
  function! VDBKeyUnMap()
-@@ -107,12 +111,27 @@
+@@ -107,12 +115,27 @@
      silent! nunmap <F7>
      silent! nunmap <F8>
      silent! nunmap <F9>
@@ -261,7 +270,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
  function! VDBKeyMap()
      call VDBKeyUnMap()
      if match(s:type, "jdb") != -1
-@@ -120,7 +139,8 @@
+@@ -120,7 +143,8 @@
          nmap <unique> <F5>          :Vdb cont<CR>
          nmap <unique> <F7>          :Vdb step<CR>
          nmap <unique> <F8>          :Vdb next<CR>
@@ -271,7 +280,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
          vmap <unique> <F10>         "gy:Vdb print <C-R>g<CR>
          nmap <unique> <F10>         :Vdb print <C-R><C-W><CR>
      elseif match(s:type, "gdb") != -1
-@@ -136,3 +156,4 @@
+@@ -136,3 +160,4 @@
      endif
  endfunction
  

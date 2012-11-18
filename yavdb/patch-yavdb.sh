@@ -2,7 +2,7 @@
 #Apply the patch to yavdb installed in ~/.vim/bundle.
 
 CPATH=`pwd`
-if [ ${CPATH##*/} == "yavdb" ]; then
+if [ "${CPATH##*/}" != "yavdb" ]; then
     echo "Must execute patch-yavdb.sh from the maven-ide/yavdb dir."
     exit;
 fi
