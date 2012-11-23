@@ -2460,8 +2460,8 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
         "Get the maven repo directory.
         let l:effectiveSettingsFile = s:mvn_tmpdir."/effective-settings.xml"
         let l:effectiveSettings = system("cd ".l:testHome."; "
-            \."mvn org.apache.maven.plugins:maven-help-plugin:g:"
-            \.mvn_compilerVersion.":effective-settings")
+            \."mvn org.apache.maven.plugins:maven-help-plugin:"
+            \."2.1.1:effective-settings")
         let l:effectiveSettings = MvnTrimStringPre(l:effectiveSettings, "<settings ")
         let l:effectiveSettings = MvnTrimStringPost(l:effectiveSettings, "</settings>")
         let l:effectiveSettings = substitute(l:effectiveSettings, "\n", "", "g")
