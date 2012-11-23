@@ -76,7 +76,19 @@ LIMITATIONS                         *maven-ide-limits*
 
     o Source files not opened via 'Project' do not configure the maven
       environment - limitation of the 'Project' plugin. The environment
-      may be set manually with the 'Project' \e key mapping.
+      may be set manually by jumping from the file to the tree with \gt
+      then <RETURN> on the file to set the environment.
+    o The java project must successfully complete the execution of:
+>
+        mvn -fn dependency:tree help:effective-pom
+<
+      The project configuration is captured from the output of the
+      maven command.
+    o Changes to the pom.xml are not automatically processed and must be
+      manually processed with \rp.
+    o The maven compiler version is fixed at 2.5. The compiler error output
+      format changes across compiler version and maven version; for error
+      processing simplicity the compiler version is fixed.
 
 ==============================================================================
 INSTALLATION                        *maven-ide-installation*

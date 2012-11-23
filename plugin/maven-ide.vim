@@ -113,7 +113,7 @@ function! MvnInsertProjectTree(projPath) "{{{
 
     let l:cmd = "find ".l:mvnProjectPath." -name pom.xml -print"
     let l:tmpPomList = split(system(l:cmd))
-    let l:pomList = sort(l:tmpPomList, function("MvnDirectorySort"))
+    let l:pomList = MvnPomFileOrdering(l:tmpPomList)
 
     "Does all the work.
     let l:prjIdPomDict = MvnGetPrjIdPomDict(l:prjIdPomFilename)
@@ -891,23 +891,79 @@ function! MvnGetPathsFromPrjDict(prjIdPomDict, idList, attribute) "{{{
     return l:dirPath
 endfunction; "}}} body }}}
 
+function! MvnPomFileOrdering(pomFileList) "{{{
+    let l:directoryList = []
+    for l:pom in a:pomFileList
+        let l:dir = substitute(l:pom, '/pom.xml$', '', 'g')
+        call add(l:directoryList, l:dir)
+    endfor
+    let l:parentChildLists = MvnDirectoryParentChildSplit(l:directoryList)
+    let l:reverseParentList = reverse(l:parentChildLists[0])
+    let l:childList = l:parentChildLists[1]
+    while len(l:childList) > 0
+        let l:indx = 0
+        let l:childPos = -1
+        for l:parent in l:reverseParentList
+            if l:childList[0] =~ '^'.l:parent
+                let l:childPos = l:indx
+                break
+            endif
+            let l:indx += 1
+        endfor
+        if l:childPos > -1
+            call insert(l:reverseParentList, l:childList[0], l:childPos)
+        endif
+        call remove(l:childList, 0)
+    endwhile
+    let orderedPomList = []
+    for l:dir in reverse(l:reverseParentList)
+       call add(orderedPomList, l:dir.'/pom.xml')
+    endfor
+    return orderedPomList
+endfunction; "}}}
+
+function! MvnDirectoryParentChildSplit(directoryList) "{{{
+"Return 2 lists in a list. ie [ parentList, childList ]
+    let l:lengthSorted = sort(a:directoryList, function("MvnDirectorySort"))
+    let l:parentList = []
+    let l:childList = []
+    for l:targetDir in l:lengthSorted
+        let l:child = 0
+        for l:testDir in l:lengthSorted
+            if l:testDir != l:targetDir
+                if l:targetDir =~ '^'.l:testDir
+                   let l:child = 1
+                   break
+                endif
+            endif
+        endfor
+        if l:child == 1
+            call add(l:childList, l:targetDir)
+        else
+            call add(l:parentList, l:targetDir)
+        endif
+    endfor
+    return [l:parentList, l:childList]
+endfunction; "}}}
+
 function! MvnDirectorySort(dir1, dir2) "{{{
 "sort() Funcref to sort directories and their children in the required order
 "for the project tree build. ie Parent directories must be ordered before
-"their children.
+"their children. Sort short paths first, then when the path segment count
+"is equal, sort reverse alphabetical. (Reverse alpha so after
+"MvnPomFileOrdering the order is alpabetical.)
 "return - 0 when equal,
 "         1 if dir1 sorts after dir2,
 "         -1 if dir1 sorts before dir2.
     "Compare the number of '/'
-    if match(a:dir1, '/') == 0 && match(a:dir2, '/') == 0
-        let l:dirCount1 = len(a:dir1) - len(substitute(a:dir1, '/', '', 'g'))
-        let l:dirCount2 = len(a:dir2) - len(substitute(a:dir2, '/', '', 'g'))
-        if l:dirCount1 > l:dirCount2
-            return 1
-        elseif l:dirCount1 < l:dirCount2
-            return -1
-        endif
-    endif
+     let l:dirCount1 = len(a:dir1) - len(substitute(a:dir1, '/', '', 'g'))
+     let l:dirCount2 = len(a:dir2) - len(substitute(a:dir2, '/', '', 'g'))
+     if l:dirCount1 > l:dirCount2
+         return 1
+     elseif l:dirCount1 < l:dirCount2
+         return -1
+     endif
+
     "alphabetical sort
     let l:lenDir1 = len(a:dir1)
     let l:lenDir2 = len(a:dir2)
@@ -922,9 +978,9 @@ function! MvnDirectorySort(dir1, dir2) "{{{
     while (l:indx < l:lenDir)
         if len(a:dir1) > l:indx
             if strpart(a:dir1, l:indx, 1) > strpart(a:dir2, l:indx, 1)
-                return 1
-            elseif strpart(a:dir1, l:indx, 1) < strpart(a:dir2, l:indx, 1)
                 return -1
+            elseif strpart(a:dir1, l:indx, 1) < strpart(a:dir2, l:indx, 1)
+                return 1
             endif
         else
             return l:ret
@@ -955,8 +1011,6 @@ endfunction; "}}}
 function! MvnBuildRunClassPath(mvnData) "{{{
 "Create the classpath from the maven project.
 "return - the maven classpath
-    "let l:runMaven ='mvn dependency:build-classpath'
-    "let l:mavenClasspathOutput = system(l:runMaven)
     let l:mavenClasspathOutput = a:mvnData
     let l:pos = matchend(l:mavenClasspathOutput, 'Dependencies classpath:')
     let l:clpath = ""
@@ -1027,7 +1081,6 @@ function! MvnLoadPrjPomDict(filename) "{{{
 endfunction; "}}}
 
 function! MvnGetInVimSetting(filename, setting) "{{{
-    "TODO move to env fold.
     let l:lines = readfile(a:filename)
     let l:lineNo = match(l:lines, a:setting)
     let l:settingLine = l:lines[l:lineNo]
@@ -1090,8 +1143,6 @@ function! s:Mvn2Plugin.New()
    call this.addStartRegExp('^\[INFO\] -\+')
    call this.addStartRegExp('^\[INFO\] Compilation failure')
    return this
-endfunction
-function! MvnXXX()
 endfunction
 function! s:Mvn2Plugin.processErrors() "{{{ processErrors
 "return dict { lineNumber, quickfixList }
@@ -1463,7 +1514,6 @@ function! MvnCompileProcessOutput(mvnOutput) "{{{
     let l:lineNo = 0
     while l:lineNo < l:outSize
         for plugin in s:plugins
-            call MvnXXX()
             let processResult = plugin.processAtLine(l:lineNo)
             if processResult.lineNumber != l:lineNo
                 let l:lineNo = processResult.lineNumber
@@ -2410,7 +2460,8 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
         "Get the maven repo directory.
         let l:effectiveSettingsFile = s:mvn_tmpdir."/effective-settings.xml"
         let l:effectiveSettings = system("cd ".l:testHome."; "
-            \."mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:effective-settings")
+            \."mvn org.apache.maven.plugins:maven-help-plugin:g:"
+            \.mvn_compilerVersion.":effective-settings")
         let l:effectiveSettings = MvnTrimStringPre(l:effectiveSettings, "<settings ")
         let l:effectiveSettings = MvnTrimStringPost(l:effectiveSettings, "</settings>")
         let l:effectiveSettings = substitute(l:effectiveSettings, "\n", "", "g")
@@ -2648,12 +2699,33 @@ function! s:TestDirectorySort(testR) "{{{
     call a:testR.AssertEquals('MvnDirectorySort3', -1, l:ret)
     let l:Fn = function("MvnDirectorySort")
     let l:tmpList = sort(['/a/b/c/p', '/a/b/p', '/a/b/c/d', '/a'], l:Fn)
-    let l:expected =['/a', '/a/b/p', '/a/b/c/d', '/a/b/c/p']
+    let l:expected =['/a', '/a/b/p', '/a/b/c/p', '/a/b/c/d']
     call a:testR.AssertEquals('MvnDirectorySort4', l:expected, l:tmpList)
     let l:tmpList = sort(['/z','/b','/c','/p','/d','/e','/f','/g','/h','/i','/j','/a'], l:Fn)
-    call a:testR.AssertEquals('MvnDirectorySort5', '/a', l:tmpList[0])
-    call a:testR.AssertEquals('MvnDirectorySort6', '/b', l:tmpList[1])
-    call a:testR.AssertEquals('MvnDirectorySort7', '/z', l:tmpList[11])
+    call a:testR.AssertEquals('MvnDirectorySort5', '/z', l:tmpList[0])
+    call a:testR.AssertEquals('MvnDirectorySort6', '/p', l:tmpList[1])
+    call a:testR.AssertEquals('MvnDirectorySort7', '/a', l:tmpList[11])
+    let l:dirList = ['./encompass-web/web', './encompass-web',
+        \'./common/schema', './common/service', './common/domain',
+        \'./common/data', './common/util',
+        \'./common', '.']
+    let l:expected = [ [ '.' ], [ './encompass-web', './common',
+        \'./encompass-web/web', './common/util', './common/service',
+        \'./common/schema', './common/domain','./common/data' ] ]
+    let l:lists = MvnDirectoryParentChildSplit(l:dirList)
+    call a:testR.AssertEquals('MvnDirectorySort8', l:expected, l:lists)
+
+    let l:pomList = ['./encompass-web/web/pom.xml', './encompass-web/pom.xml',
+        \'./common/schema/pom.xml', './common/service/pom.xml', './common/domain/pom.xml',
+        \'./common/data/pom.xml', './common/util/pom.xml',
+        \'./common/pom.xml', './pom.xml']
+
+    let l:sortedPoms = MvnPomFileOrdering(l:pomList)
+    let l:expected = [ './pom.xml', './common/pom.xml',
+        \'./common/data/pom.xml', './common/domain/pom.xml',
+        \'./common/schema/pom.xml', './common/service/pom.xml','./common/util/pom.xml',
+        \'./encompass-web/pom.xml', './encompass-web/web/pom.xml' ]
+    call a:testR.AssertEquals('MvnDirectorySort9', l:expected, l:sortedPoms)
 endfunction "}}}
 function! s:TestIsTestSrc(testR) "{{{
     if !exists('g:proj_running')
@@ -2696,6 +2768,7 @@ function! s:TestExecutable(filename) "{{{
     endif
 endfunction "}}}
 function! s:TestDependencies(dummy) "{{{
+    "Show the vim features with #vim --version or :version from the vim prompt.
     call s:TestExecutable('java')
     call s:TestExecutable('mvn')
     call s:TestExecutable('perl')
@@ -2703,10 +2776,10 @@ function! s:TestDependencies(dummy) "{{{
     call s:TestExecutable('yavdb')
     let l:xpathSuccess= glob("`perl -MXML::XPath -e 1`")
     if len(l:xpathSuccess) > 0
-        throw "No perl XML::XPath module. Check maven-ide installation instructions."
+        throw 'No perl XML::XPath module. Check maven-ide installation instructions.'
     endif
     if !has('python')
-        throw "Require python feature. Run :version"
+        throw 'Require python feature. Run :version'
     endif
     if len($USER) == 0
         throw 'Environment $USER is required.'
@@ -2715,7 +2788,7 @@ function! s:TestDependencies(dummy) "{{{
         echo 'yavdb not patched?'
     endif
     if !has('clientserver')
-        echo  'No clientserver'
+        echo  'No clientserver. Run :version'
     endif
 endfunction; "}}}
 function! s:TestSetup() "{{{
@@ -2935,7 +3008,7 @@ let s:mvn_scriptDir = strpart(s:mvn_scriptFile, 0,
 let s:mvn_xpathcmd = "perl -w ".s:mvn_scriptDir.
         \"/bin/xpath.pl filename \"query\""
 let s:plugins = MvnPluginInit()
-let s:mvnCmd = "mvn org.apache.maven.plugins:maven-dependency-plugin:2.4:build-classpath"
+let s:mvnCmd = "mvn -fn org.apache.maven.plugins:maven-dependency-plugin:2.4:build-classpath"
         \." org.apache.maven.plugins:maven-help-plugin:2.1.1:effective-pom"
 "}}} Private Variables  -------------------------------------------------------
 "}}} Public Variables ---------------------------------------------------------
