@@ -67,7 +67,6 @@ TODO                                *maven-ide-todo*
     o Improve debug variable inspection functionality. Currently variable
       values are printed in the jdb console, and dump of variables is
       directly via jdb.
-    o Add multi thread debug support.
     o Adjust mappings to the correct context.
     o Add unit tests for all functionality in MvnRunTests().
 
@@ -177,8 +176,8 @@ g:mvn_pluginList                    *mvn_pluginList*
 
 g:mvn_compilerVersion               *mvn_compilerVersion*
     -maven compiler version (currently only the output from 2.5 is supported).
-    Different versions of the compiler produce differing output so standardize
-    on a version: >
+    Different versions of the compiler produce differing output across the 
+    different maven versions so standardize on a compiler version: >
     let g:mvn_compilerVersion = '2.5'
 
 ==============================================================================
@@ -279,8 +278,8 @@ A prompt is given to enter a classname for search. The search is across all
 jar files in the maven .m2 repository.
 
 \rm *MvnCompile()*                   project or source buffer
-Compile current maven project (mvn clean install). The Apache compiler plugin
-version is fixed by|mvn_compilerVersion|setting.
+Compile current maven project (mvn clean install). The Apache Maven compiler
+plugin version is fixed by|mvn_compilerVersion|setting.
 
 \cf *MvnMvnCodeFormat()*             source buffer
 Remove end of line spaces.
