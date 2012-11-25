@@ -1,6 +1,7 @@
-*maven-ide.txt*    For Vim version 7.x. Last Change: Sun Nov 18 20:52:50 EST 2012
+*maven-ide.txt*    For Vim version 7.x. Last Change: Sun Nov 25 21:12:36 EST 2012
 
     Plugin for managing java maven projects.
+    Version 0.6
 
                 by Daren Isaacs
               ikkyisaacs email-at-sign gmail com
@@ -13,6 +14,7 @@
         Limitations................|maven-ide-limits|
         Settings.................|maven-ide-settings|
         Installation.........|maven-ide-installation|
+        Upgrade..............|maven-ide-upgrade|
         Quickstart.............|maven-ide-quickstart|
         Mappings.................|maven-ide-mappings|
         Notes.......................|maven-ide-notes|
@@ -41,6 +43,8 @@ Features include:
     o Autocomplete on methods, auto add of imports etc is via the vjde plugin
       project.
     o Auto build of javadoc from source when it does not exist.
+
+
 
 ==============================================================================
 DEPENDENCIES                        *maven-ide-depends*
@@ -133,6 +137,13 @@ RECOMMENDED VIM PLUGINS
       http://www.vim.org/scripts/script.php?script_id=90
 
 ==============================================================================
+UPGRADE                             *maven-ide-upgrade*
+    o Version 0.5 to 0.6
+        o remove all in.vim configuration files and recreate.
+        o remove the #PROJECT_IDS line from the end of the .vimprojects
+          file.
+
+==============================================================================
 SETTINGS                            *maven-ide-settings*
 
 The default settings for the maven-ide global variables.
@@ -176,7 +187,7 @@ g:mvn_pluginList                    *mvn_pluginList*
 
 g:mvn_compilerVersion               *mvn_compilerVersion*
     -maven compiler version (currently only the output from 2.5 is supported).
-    Different versions of the compiler produce differing output across the 
+    Different versions of the compiler produce differing output across the
     different maven versions so standardize on a compiler version: >
     let g:mvn_compilerVersion = '2.5'
 

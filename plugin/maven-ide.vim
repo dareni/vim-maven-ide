@@ -1,8 +1,8 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Sun Nov 18 20:55:18 EST 2012
-" Version:     0.5
+" Last Change: Sun Nov 25 21:14:36 EST 2012
+" Version:     0.6
 "=============================================================================
 " See documentation in accompanying help file.
 " You may use this code in whatever way you see fit.
@@ -775,7 +775,7 @@ function! MvnCreateEnv(projectHomePath, prjIdPomDict, jreLib) "{{{
     let l:tagPath =  MvnBuildTags(l:prjPomDict['id'], l:javaSourcePath, l:projectIdList, a:prjIdPomDict)
     let l:newline = "let &tags=\"".l:tagPath."\""
     call MvnUpdateFile(l:projectHomePath."/in.vim", "let &tags=", l:newline)
-    echo "MvnCreateEnv Complete - ".l:projectHomePath." ".eval(localtime() - l:startTime)."s"
+    "echo "MvnCreateEnv Complete - ".l:projectHomePath." ".eval(localtime() - l:startTime)."s"
     return a:prjIdPomDict
 endfunction; "}}} body }}}
 
