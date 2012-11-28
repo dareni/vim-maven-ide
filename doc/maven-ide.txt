@@ -67,7 +67,6 @@ TODO                                *maven-ide-todo*
     o Improve debug variable inspection functionality. Currently variable
       values are printed in the jdb console, and dump of variables is
       directly via jdb.
-    o Add multi thread debug support.
     o Adjust mappings to the correct context.
     o Add unit tests for all functionality in MvnRunTests().
 
@@ -76,7 +75,19 @@ LIMITATIONS                         *maven-ide-limits*
 
     o Source files not opened via 'Project' do not configure the maven
       environment - limitation of the 'Project' plugin. The environment
-      may be set manually with the 'Project' \e key mapping.
+      may be set manually by jumping from the file to the tree with \gt
+      then <RETURN> on the file to set the environment.
+    o The java project must successfully complete the execution of:
+>
+        mvn -fn dependency:tree help:effective-pom
+<
+      The project configuration is captured from the output of the
+      maven command.
+    o Changes to the pom.xml are not automatically processed and must be
+      manually processed with \rp.
+    o The maven compiler version is fixed at 2.5. The compiler error output
+      format changes across compiler version and maven version; for error
+      processing simplicity the compiler version is fixed.
 
 ==============================================================================
 INSTALLATION                        *maven-ide-installation*
@@ -165,8 +176,8 @@ g:mvn_pluginList                    *mvn_pluginList*
 
 g:mvn_compilerVersion               *mvn_compilerVersion*
     -maven compiler version (currently only the output from 2.5 is supported).
-    Different versions of the compiler produce differing output so standardize
-    on a version: >
+    Different versions of the compiler produce differing output across the 
+    different maven versions so standardize on a compiler version: >
     let g:mvn_compilerVersion = '2.5'
 
 ==============================================================================
@@ -267,8 +278,8 @@ A prompt is given to enter a classname for search. The search is across all
 jar files in the maven .m2 repository.
 
 \rm *MvnCompile()*                   project or source buffer
-Compile current maven project (mvn clean install). The Apache compiler plugin
-version is fixed by|mvn_compilerVersion|setting.
+Compile current maven project (mvn clean install). The Apache Maven compiler
+plugin version is fixed by|mvn_compilerVersion|setting.
 
 \cf *MvnMvnCodeFormat()*             source buffer
 Remove end of line spaces.
