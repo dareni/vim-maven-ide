@@ -2774,7 +2774,7 @@ function! s:TestDependencies(dummy) "{{{
     call s:TestExecutable('perl')
     call s:TestExecutable('find')
     call s:TestExecutable('yavdb')
-    let l:xpathSuccess= glob("`perl -MXML::XPath -e 1`")
+    let l:xpathSuccess= system('perl -MXML::XPath -e 1')
     if len(l:xpathSuccess) > 0
         throw 'No perl XML::XPath module. Check maven-ide installation instructions.'
     endif
