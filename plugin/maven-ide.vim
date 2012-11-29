@@ -1,7 +1,7 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Sun Nov 25 21:14:36 EST 2012
+" Last Change: Thu Nov 29 21:51:12 EST 2012
 " Version:     0.6
 "=============================================================================
 " See documentation in accompanying help file.
@@ -2426,6 +2426,69 @@ function! s:TestMvnIsInList(testR) "{{{ TestMvnIsInList
     let l:ret = MvnIsInList(['a', 'b', 'c'], "d")
     call a:testR.AssertEquals('MvnIsInList2: ', 0, l:ret)
 endfunction "}}} TestMvnIsInList
+function! s:TestGetProjectDirList(testR) "{{{ TestMvnIsInList
+        call system('mkdir -p '.s:mvnTmpTestDir.'/blah/')
+        call system('mkdir -p '.s:mvnTmpTestDir.'/blah1/')
+        call system('mkdir -p '.s:mvnTmpTestDir.'/blah2/')
+        call system('mkdir -p '.s:mvnTmpTestDir.'/blah2/blah3/')
+        call system('mkdir -p '.s:mvnTmpTestDir.'/blah2/blah4/')
+        call system('mkdir -p '.s:mvnTmpTestDir.'/blah5/')
+        call system('touch '.s:mvnTmpTestDir.'/blah/pom.xml')
+        call system('touch '.s:mvnTmpTestDir.'/blah1/pom.xml')
+        call system('touch '.s:mvnTmpTestDir.'/blah2/pom.xml')
+        call system('touch '.s:mvnTmpTestDir.'/blah2/blah3/pom.xml')
+        call system('touch '.s:mvnTmpTestDir.'/blah2/blah4/pom.xml')
+        call system('touch '.s:mvnTmpTestDir.'/blah5/pom.xml')
+        silent execute 'new '.s:mvnTmpTestDir.'/.vimproject'
+
+        "MvnGetProjectDirList(projectCount, excludeSubProjects)
+        call append(0, ['blah='.s:mvnTmpTestDir.'/blah CD=. in=in.vim filter="*.vim *.java" {', '}'])
+        :1
+        try 
+            let l:dirList = MvnGetProjectDirList(1, 1)
+        catch /.*/
+            echo "TestGetProjectDirList1 exception: ".v:exception  
+        endtry
+        call a:testR.AssertEquals('TestGetProjectDirList1:', ['/tmp/daren/mvn-ide-test/blah'], l:dirList)
+
+        call append(2, ['blah1='.s:mvnTmpTestDir.'/blah1 CD=. in=in.vim filter="*.vim *.java" {', '}'])
+        :3
+        try
+            let l:dirList = MvnGetProjectDirList(1, 0)
+        catch /.*/
+            echo "TestGetProjectDirList2 exception: ".v:exception  
+        endtry
+        call a:testR.AssertEquals('TestGetProjectDirList2:', ['/tmp/daren/mvn-ide-test/blah1'], l:dirList)
+
+        :1
+        try
+            let l:dirList = MvnGetProjectDirList(1, 0)
+        catch /.*/
+            echo "TestGetProjectDirList3 exception: ".v:exception  
+        endtry
+        call a:testR.AssertEquals('TestGetProjectDirList3:', ['/tmp/daren/mvn-ide-test/blah'], l:dirList)
+
+        call append(4, ['blah2='.s:mvnTmpTestDir.'/blah2 CD=. in=in.vim filter="*.vim *.java" {', 
+                \' blah3='.s:mvnTmpTestDir.'/blah2/blah3 CD=. in=in.vim filter="*.vim *.java" {'
+                \' }',
+                \' blah4='.s:mvnTmpTestDir.'/blah2/blah4 CD=. in=in.vim filter="*.vim *.java" {'
+                \' }',
+                \'}',
+                \'blah5='.s:mvnTmpTestDir.'/blah5 CD=. in=in.vim filter="*.vim *.java" {', 
+                \'}', ])
+
+        :5
+        try
+            let l:dirList = MvnGetProjectDirList(1, 0)
+        catch /.*/
+            echo "TestGetProjectDirList4 exception: ".v:exception  
+        endtry
+        call a:testR.AssertEquals('TestGetProjectDirList4:', ['/tmp/daren/mvn-ide-test/blah2',
+            \'/tmp/daren/mvn-ide-test/blah2/blah3',
+            \'/tmp/daren/mvn-ide-test/blah2/blah4'], l:dirList)
+
+        bd!
+endfunction "}}} TestMvnIsInList
 function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
 "Test the generation of the project tree.
 
@@ -2861,6 +2924,7 @@ function! MvnRunTests() "{{{ MvnRunTests
     call s:TestClasspathPreen(testR)
     call s:TestInstallJavadocFromSource(testR)
     call s:TestGetPomDetailDict(testR)
+    call s:TestGetProjectDirList(testR)
     call s:TestEnvBuild(testR)
     "}}} Tree/Env Build
     call l:testR.PrintStats()
