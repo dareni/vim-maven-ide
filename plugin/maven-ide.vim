@@ -1,7 +1,7 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Thu Nov 29 21:51:12 EST 2012
+" Last Change: Fri Nov 30 12:53:17 EST 2012
 " Version:     0.6
 "=============================================================================
 " See documentation in accompanying help file.
@@ -33,9 +33,12 @@ function! MvnGetProjectDirList(projectCount, excludeSubProjects) "{{{
         call inputrestore()
     endif
     if strlen(l:projectCount) == 0
+        "-1 get all projects from cursor to buffer end.
         let l:projectCount = -1
     endif
 
+    "Quick check for valid start project, is thrown away and refound at
+    "the start of the while loop. Should be fixed for efficiency.
     let l:projectDir = MvnGetProjectDir(l:save_cursor[1])
     if !strlen(l:projectDir) > 0
         echo("Error - Current line is not a project header!")
@@ -43,16 +46,34 @@ function! MvnGetProjectDirList(projectCount, excludeSubProjects) "{{{
     endif
     let l:onlyCountParents = 1
     if 0 == match(getline(l:save_cursor[1]), "^\\s")
+        "If the processing starts on a non parent ie subproject we
+        "want to count child and parent projects.
         let l:onlyCountParents = 0
     endif
 
+    "Get all the selected project directories from the project buffer.
     while !l:finish
         let l:projectLineNo = search(l:prjRegExp, 'Wc')
         if l:projectLineNo == 0
             let l:finish = 1
         else
-            let l:projectDir = MvnGetProjectDir(l:projectLineNo)
-            if strlen(l:projectDir) > 0
+            let l:exception = ''
+            try
+                let l:projectDir = MvnGetProjectDir(l:projectLineNo)
+            catch /^MvnGetProjectDir:/
+                "Add this catch for when a broken project exists as the
+                "first project after a selection. When the broken project
+                "exists outside the select we do not want to break processing.
+                "ie The first parent project after a selection of parents or
+                "the end of buffer is the end marker for project searching.
+                if l:projectCount != -1 && l:counter == l:projectCount &&
+                    \l:onlyCountParents == 1
+                    let l:exception = v:exception
+                else
+                    throw v:exception
+                endif
+            endtry
+            if strlen(l:projectDir) > 0 || strlen(l:exception) > 0
                 if !l:onlyCountParents
                     let l:counter += 1 "counting child and parents
                 elseif -1 == match(getline(l:projectLineNo), "^\\s")
@@ -2438,16 +2459,16 @@ function! s:TestGetProjectDirList(testR) "{{{ TestMvnIsInList
         call system('touch '.s:mvnTmpTestDir.'/blah2/pom.xml')
         call system('touch '.s:mvnTmpTestDir.'/blah2/blah3/pom.xml')
         call system('touch '.s:mvnTmpTestDir.'/blah2/blah4/pom.xml')
-        call system('touch '.s:mvnTmpTestDir.'/blah5/pom.xml')
+        call system('touch '.s:mvnTmpTestDir.'/blah5/nopom.xml')
         silent execute 'new '.s:mvnTmpTestDir.'/.vimproject'
 
         "MvnGetProjectDirList(projectCount, excludeSubProjects)
         call append(0, ['blah='.s:mvnTmpTestDir.'/blah CD=. in=in.vim filter="*.vim *.java" {', '}'])
         :1
-        try 
+        try
             let l:dirList = MvnGetProjectDirList(1, 1)
         catch /.*/
-            echo "TestGetProjectDirList1 exception: ".v:exception  
+            echo "TestGetProjectDirList1 exception: ".v:exception
         endtry
         call a:testR.AssertEquals('TestGetProjectDirList1:', ['/tmp/daren/mvn-ide-test/blah'], l:dirList)
 
@@ -2456,7 +2477,7 @@ function! s:TestGetProjectDirList(testR) "{{{ TestMvnIsInList
         try
             let l:dirList = MvnGetProjectDirList(1, 0)
         catch /.*/
-            echo "TestGetProjectDirList2 exception: ".v:exception  
+            echo "TestGetProjectDirList2 exception: ".v:exception
         endtry
         call a:testR.AssertEquals('TestGetProjectDirList2:', ['/tmp/daren/mvn-ide-test/blah1'], l:dirList)
 
@@ -2464,24 +2485,24 @@ function! s:TestGetProjectDirList(testR) "{{{ TestMvnIsInList
         try
             let l:dirList = MvnGetProjectDirList(1, 0)
         catch /.*/
-            echo "TestGetProjectDirList3 exception: ".v:exception  
+            echo "TestGetProjectDirList3 exception: ".v:exception
         endtry
         call a:testR.AssertEquals('TestGetProjectDirList3:', ['/tmp/daren/mvn-ide-test/blah'], l:dirList)
 
-        call append(4, ['blah2='.s:mvnTmpTestDir.'/blah2 CD=. in=in.vim filter="*.vim *.java" {', 
+        call append(4, ['blah2='.s:mvnTmpTestDir.'/blah2 CD=. in=in.vim filter="*.vim *.java" {',
                 \' blah3='.s:mvnTmpTestDir.'/blah2/blah3 CD=. in=in.vim filter="*.vim *.java" {'
                 \' }',
                 \' blah4='.s:mvnTmpTestDir.'/blah2/blah4 CD=. in=in.vim filter="*.vim *.java" {'
                 \' }',
                 \'}',
-                \'blah5='.s:mvnTmpTestDir.'/blah5 CD=. in=in.vim filter="*.vim *.java" {', 
+                \'blah5='.s:mvnTmpTestDir.'/blah5 CD=. in=in.vim filter="*.vim *.java" {',
                 \'}', ])
 
         :5
         try
             let l:dirList = MvnGetProjectDirList(1, 0)
         catch /.*/
-            echo "TestGetProjectDirList4 exception: ".v:exception  
+            echo "TestGetProjectDirList4 exception: ".v:exception
         endtry
         call a:testR.AssertEquals('TestGetProjectDirList4:', ['/tmp/daren/mvn-ide-test/blah2',
             \'/tmp/daren/mvn-ide-test/blah2/blah3',
