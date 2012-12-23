@@ -1,4 +1,4 @@
-*maven-ide.txt*    For Vim version 7.x. Last Change: Sun Nov 25 21:12:36 EST 2012
+*maven-ide.txt*    For Vim version 7.x. Last Change: Sun Dec 23 18:23:47 EST 2012
 
     Plugin for managing java maven projects.
     Version 0.6
@@ -92,6 +92,10 @@ LIMITATIONS                         *maven-ide-limits*
     o The maven compiler version is fixed at 2.5. The compiler error output
       format changes across compiler version and maven version; for error
       processing simplicity the compiler version is fixed.
+    o Junit functionality is coded to v3.8 and v4.11. The junit version
+      selection is dynamic when the junit library is in the classpath. For
+      a parent pom build, the junit library may not be in the classpath
+      so the default junit plugin is used.
 
 ==============================================================================
 INSTALLATION                        *maven-ide-installation*

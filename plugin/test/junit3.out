@@ -1,0 +1,23 @@
+.E.F.F
+Time: 0.049
+There was 1 error:
+1) testApp(test.AppTest)java.lang.ArithmeticException: / by zero
+	at test.AppTest.testApp(AppTest.java:36)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+There were 2 failures:
+1) testApp1(test.AppTest)junit.framework.AssertionFailedError: Rigourous Test1. expected:<1> but was:<0>
+	at test.AppTest.testApp1(AppTest.java:43)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+2) testApp2(test.AppTest)junit.framework.AssertionFailedError: Rigourous Test2. expected:<3> but was:<0>
+	at test.AppTest.testApp2(AppTest.java:47)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+
+FAILURES!!!
+Tests run: 3,  Failures: 2,  Errors: 1
+

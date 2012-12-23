@@ -1,0 +1,228 @@
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building Encompass Domain 1.0-encompass-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+Downloading: http://download.java.net/maven/2/com/encompass/common/common-app/1.0-encompass-SNAPSHOT/maven-metadata.xml
+Downloading: http://download.java.net/maven/2/com/encompass/encompass-master/1.0-encompass-SNAPSHOT/maven-metadata.xml
+Downloading: http://repo.maven.apache.org/maven2/junit/junit/4.11/junit-4.11.pom
+2/3 KB   3/3 KB            Downloaded: http://repo.maven.apache.org/maven2/junit/junit/4.11/junit-4.11.pom (3 KB at 2.0 KB/sec)
+Downloading: http://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.pom
+766/766 B               Downloaded: http://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.pom (766 B at 4.3 KB/sec)
+Downloading: http://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-parent/1.3/hamcrest-parent-1.3.pom
+2/2 KB      2/2 KB            Downloaded: http://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-parent/1.3/hamcrest-parent-1.3.pom (2 KB at 1.8 KB/sec)
+Downloading: http://repo.maven.apache.org/maven2/junit/junit/4.11/junit-4.11.jar
+Downloading: http://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar
+2/240 KB   6/240 KB   8/240 KB   9/240 KB   11/240 KB   12/240 KB   12/240 KB   2/44 KB   13/240 KB   2/44 KB   13/240 KB   6/44 KB   15/240 KB   6/44 KB   16/240 KB   6/44 KB   17/240 KB   6/44 KB   17/240 KB   10/44 KB   17/240 KB   13/44 KB   19/240 KB   13/44 KB   20/240 KB   13/44 KB   21/240 KB   13/44 KB   21/240 KB   15/44 KB   21/240 KB   17/44 KB   23/240 KB   17/44 KB   24/240 KB   17/44 KB   25/240 KB   21/44 KB   25/240 KB   21/44 KB   25/240 KB   23/44 KB   25/240 KB   25/44 KB   27/240 KB   25/44 KB   28/240 KB   25/44 KB   28/240 KB   28/44 KB   28/240 KB   31/44 KB   28/240 KB   32/44 KB   28/240 KB   33/44 KB   28/240 KB   35/44 KB   29/240 KB   35/44 KB   31/240 KB   35/44 KB   32/240 KB   35/44 KB   32/240 KB   36/44 KB   32/240 KB   38/44 KB   33/240 KB   38/44 KB   33/240 KB   40/44 KB   33/240 KB   41/44 KB   33/240 KB   44/44 KB   35/240 KB   44/44 KB   35/240 KB   44/44 KB   36/240 KB   44/44 KB   37/240 KB   44/44 KB   38/240 KB   44/44 KB   40/240 KB   44/44 KB   41/240 KB   44/44 KB   42/240 KB   44/44 KB   44/240 KB   44/44 KB   45/240 KB   44/44 KB   46/240 KB   44/44 KB   48/240 KB   44/44 KB   49/240 KB   44/44 KB   50/240 KB   44/44 KB   52/240 KB   44/44 KB   53/240 KB   44/44 KB   54/240 KB   44/44 KB   56/240 KB   44/44 KB   57/240 KB   44/44 KB   58/240 KB   44/44 KB   60/240 KB   44/44 KB   61/240 KB   44/44 KB   62/240 KB   44/44 KB   63/240 KB   44/44 KB   65/240 KB   44/44 KB   66/240 KB   44/44 KB   67/240 KB   44/44 KB   69/240 KB   44/44 KB   70/240 KB   44/44 KB                          Downloaded: http://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar (44 KB at 164.1 KB/sec)
+71/240 KB              73/240 KB   74/240 KB   75/240 KB   78/240 KB   79/240 KB   81/240 KB   82/240 KB   83/240 KB   85/240 KB   86/240 KB   87/240 KB   88/240 KB   90/240 KB   92/240 KB   94/240 KB   95/240 KB   96/240 KB   98/240 KB   99/240 KB   100/240 KB   102/240 KB   103/240 KB   104/240 KB   106/240 KB   107/240 KB   108/240 KB   110/240 KB   111/240 KB   112/240 KB   113/240 KB   115/240 KB   116/240 KB   117/240 KB   119/240 KB   120/240 KB   121/240 KB   123/240 KB   124/240 KB   125/240 KB   127/240 KB   128/240 KB   129/240 KB   131/240 KB   132/240 KB   135/240 KB   136/240 KB   138/240 KB   140/240 KB   141/240 KB   142/240 KB   144/240 KB   145/240 KB   146/240 KB   148/240 KB   149/240 KB   150/240 KB   152/240 KB   153/240 KB   154/240 KB   156/240 KB   157/240 KB   158/240 KB   160/240 KB   161/240 KB   164/240 KB   165/240 KB   166/240 KB   167/240 KB   169/240 KB   170/240 KB   171/240 KB   173/240 KB   174/240 KB   175/240 KB   177/240 KB   179/240 KB   182/240 KB   183/240 KB   186/240 KB   187/240 KB   189/240 KB   190/240 KB   191/240 KB   192/240 KB   195/240 KB   196/240 KB   198/240 KB   200/240 KB   202/240 KB   203/240 KB   204/240 KB   206/240 KB   207/240 KB   208/240 KB   211/240 KB   212/240 KB   214/240 KB   215/240 KB   216/240 KB   217/240 KB   219/240 KB   220/240 KB   221/240 KB   223/240 KB   225/240 KB   227/240 KB   229/240 KB   231/240 KB   232/240 KB   233/240 KB   235/240 KB   236/240 KB   237/240 KB   239/240 KB   240/240 KB                Downloaded: http://repo.maven.apache.org/maven2/junit/junit/4.11/junit-4.11.jar (240 KB at 349.8 KB/sec)
+[INFO] 
+[INFO] --- maven-clean-plugin:2.4.1:clean (default-clean) @ common-domain ---
+[INFO] Deleting /opt/dev/NetBeansProjects/darenDev/encompass/common/domain/target
+[INFO] 
+[INFO] --- maven-compiler-plugin:2.5:compile (default-cli) @ common-domain ---
+[INFO] Compiling 19 source files to /opt/dev/NetBeansProjects/darenDev/encompass/common/domain/target/classes
+[INFO] 
+[INFO] --- maven-resources-plugin:2.5:resources (default-resources) @ common-domain ---
+[debug] execute contextualize
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- maven-compiler-plugin:2.5.1:compile (default-compile) @ common-domain ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- maven-checkstyle-plugin:2.2:checkstyle (default) @ common-domain ---
+[INFO] Setting property: classpath.resource.loader.class => 'org.codehaus.plexus.velocity.ContextClassLoaderResourceLoader'.
+[INFO] Setting property: velocimacro.messages.on => 'false'.
+[INFO] Setting property: resource.loader => 'classpath'.
+[INFO] Setting property: resource.manager.logwhenfound => 'false'.
+[INFO] ************************************************************** 
+[INFO] Starting Jakarta Velocity v1.4
+[INFO] RuntimeInstance initializing.
+[INFO] Default Properties File: org/apache/velocity/runtime/defaults/velocity.properties
+[INFO] Default ResourceManager initializing. (class org.apache.velocity.runtime.resource.ResourceManagerImpl)
+[INFO] Resource Loader Instantiated: org.codehaus.plexus.velocity.ContextClassLoaderResourceLoader
+[INFO] ClasspathResourceLoader : initialization starting.
+[INFO] ClasspathResourceLoader : initialization complete.
+[INFO] ResourceCache : initialized. (class org.apache.velocity.runtime.resource.ResourceCacheImpl)
+[INFO] Default ResourceManager initialization complete.
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Literal
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Macro
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Parse
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Include
+[INFO] Loaded System Directive: org.apache.velocity.runtime.directive.Foreach
+[INFO] Created: 20 parsers.
+[INFO] Velocimacro : initialization starting.
+[INFO] Velocimacro : adding VMs from VM library template : VM_global_library.vm
+[ERROR] ResourceManager : unable to find resource 'VM_global_library.vm' in any resource loader.
+[INFO] Velocimacro : error using  VM library template VM_global_library.vm : org.apache.velocity.exception.ResourceNotFoundException: Unable to find resource 'VM_global_library.vm'
+[INFO] Velocimacro :  VM library template macro registration complete.
+[INFO] Velocimacro : allowInline = true : VMs can be defined inline in templates
+[INFO] Velocimacro : allowInlineToOverride = false : VMs defined inline may NOT replace previous VM definitions
+[INFO] Velocimacro : allowInlineLocal = false : VMs defined inline will be  global in scope if allowed.
+[INFO] Velocimacro : initialization complete.
+[INFO] Velocity successfully started.
+[INFO] Starting audit...
+Audit done.
+
+[WARNING] Unable to locate Source XRef to link to - DISABLED
+[INFO] 
+[INFO] >>> maven-checkstyle-plugin:2.2:check (default) @ common-domain >>>
+[INFO] 
+[INFO] --- maven-checkstyle-plugin:2.2:checkstyle (checkstyle) @ common-domain ---
+[INFO] Starting audit...
+Audit done.
+
+[WARNING] Unable to locate Source XRef to link to - DISABLED
+[INFO] 
+[INFO] <<< maven-checkstyle-plugin:2.2:check (default) @ common-domain <<<
+[INFO] 
+[INFO] --- maven-checkstyle-plugin:2.2:check (default) @ common-domain ---
+[INFO] 
+[INFO] --- maven-resources-plugin:2.5:testResources (default-testResources) @ common-domain ---
+[debug] execute contextualize
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- maven-compiler-plugin:2.5.1:testCompile (default-testCompile) @ common-domain ---
+[INFO] Compiling 2 source files to /opt/dev/NetBeansProjects/darenDev/encompass/common/domain/target/test-classes
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.10:test (default-test) @ common-domain ---
+[INFO] Surefire report directory: /opt/dev/NetBeansProjects/darenDev/encompass/common/domain/target/surefire-reports
+
+-------------------------------------------------------
+ T E S T S
+-------------------------------------------------------
+Running com.encompass.domain.inventory.InventoryUtilsTest
+Tests run: 3, Failures: 2, Errors: 1, Skipped: 0, Time elapsed: 0.478 sec <<< FAILURE!
+testComposeCompoundInventory(com.encompass.domain.inventory.InventoryUtilsTest)  Time elapsed: 0.056 sec  <<< FAILURE!
+junit.framework.AssertionFailedError
+	at junit.framework.Assert.fail(Assert.java:55)
+	at junit.framework.Assert.assertTrue(Assert.java:22)
+	at junit.framework.Assert.assertTrue(Assert.java:31)
+	at com.encompass.domain.inventory.InventoryUtilsTest.testComposeCompoundInventory(InventoryUtilsTest.java:19)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:616)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:47)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:44)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:271)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:70)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:50)
+	at org.junit.runners.ParentRunner$3.run(ParentRunner.java:238)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:63)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:236)
+	at org.junit.runners.ParentRunner.access$000(ParentRunner.java:53)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:229)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:309)
+	at org.apache.maven.surefire.junit4.JUnit4TestSet.execute(JUnit4TestSet.java:53)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.executeTestSet(JUnit4Provider.java:123)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.invoke(JUnit4Provider.java:104)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:616)
+	at org.apache.maven.surefire.util.ReflectionUtils.invokeMethodWithArray(ReflectionUtils.java:164)
+	at org.apache.maven.surefire.booter.ProviderFactory$ProviderProxy.invoke(ProviderFactory.java:110)
+	at org.apache.maven.surefire.booter.SurefireStarter.invokeProvider(SurefireStarter.java:175)
+	at org.apache.maven.surefire.booter.SurefireStarter.runSuitesInProcessWhenForked(SurefireStarter.java:107)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:68)
+testComposeCompoundInventory1(com.encompass.domain.inventory.InventoryUtilsTest)  Time elapsed: 0.004 sec  <<< FAILURE!
+junit.framework.AssertionFailedError
+	at junit.framework.Assert.fail(Assert.java:55)
+	at junit.framework.Assert.assertTrue(Assert.java:22)
+	at junit.framework.Assert.assertTrue(Assert.java:31)
+	at com.encompass.domain.inventory.InventoryUtilsTest.testComposeCompoundInventory1(InventoryUtilsTest.java:27)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:616)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:47)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:44)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:271)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:70)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:50)
+	at org.junit.runners.ParentRunner$3.run(ParentRunner.java:238)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:63)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:236)
+	at org.junit.runners.ParentRunner.access$000(ParentRunner.java:53)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:229)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:309)
+	at org.apache.maven.surefire.junit4.JUnit4TestSet.execute(JUnit4TestSet.java:53)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.executeTestSet(JUnit4Provider.java:123)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.invoke(JUnit4Provider.java:104)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:616)
+	at org.apache.maven.surefire.util.ReflectionUtils.invokeMethodWithArray(ReflectionUtils.java:164)
+	at org.apache.maven.surefire.booter.ProviderFactory$ProviderProxy.invoke(ProviderFactory.java:110)
+	at org.apache.maven.surefire.booter.SurefireStarter.invokeProvider(SurefireStarter.java:175)
+	at org.apache.maven.surefire.booter.SurefireStarter.runSuitesInProcessWhenForked(SurefireStarter.java:107)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:68)
+testComposeCompoundInventory2(com.encompass.domain.inventory.InventoryUtilsTest)  Time elapsed: 0.061 sec  <<< ERROR!
+java.lang.ArithmeticException: / by zero
+	at com.encompass.domain.inventory.InventoryUtilsTest.testComposeCompoundInventory2(InventoryUtilsTest.java:35)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:616)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:47)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:44)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:271)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:70)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:50)
+	at org.junit.runners.ParentRunner$3.run(ParentRunner.java:238)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:63)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:236)
+	at org.junit.runners.ParentRunner.access$000(ParentRunner.java:53)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:229)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:309)
+	at org.apache.maven.surefire.junit4.JUnit4TestSet.execute(JUnit4TestSet.java:53)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.executeTestSet(JUnit4Provider.java:123)
+	at org.apache.maven.surefire.junit4.JUnit4Provider.invoke(JUnit4Provider.java:104)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:616)
+	at org.apache.maven.surefire.util.ReflectionUtils.invokeMethodWithArray(ReflectionUtils.java:164)
+	at org.apache.maven.surefire.booter.ProviderFactory$ProviderProxy.invoke(ProviderFactory.java:110)
+	at org.apache.maven.surefire.booter.SurefireStarter.invokeProvider(SurefireStarter.java:175)
+	at org.apache.maven.surefire.booter.SurefireStarter.runSuitesInProcessWhenForked(SurefireStarter.java:107)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:68)
+Running com.encompass.domain.ProductUtilsTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 sec
+
+Results :
+
+Failed tests:   testComposeCompoundInventory(com.encompass.domain.inventory.InventoryUtilsTest)
+  testComposeCompoundInventory1(com.encompass.domain.inventory.InventoryUtilsTest)
+
+Tests in error: 
+  testComposeCompoundInventory2(com.encompass.domain.inventory.InventoryUtilsTest): / by zero
+
+Tests run: 9, Failures: 2, Errors: 1, Skipped: 0
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 1:02.895s
+[INFO] Finished at: Thu Dec 20 08:00:29 EST 2012
+[INFO] Final Memory: 17M/43M
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:2.10:test (default-test) on project common-domain: There are test failures.
+[ERROR] 
+[ERROR] Please refer to /opt/dev/NetBeansProjects/darenDev/encompass/common/domain/target/surefire-reports for the individual test results.
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
