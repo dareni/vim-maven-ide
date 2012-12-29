@@ -26,6 +26,8 @@ Running test.AppTest
 Tests run: 3, Failures: 2, Errors: 1, Skipped: 0, Time elapsed: 0.022 sec <<< FAILURE!
 testApp(test.AppTest)  Time elapsed: 0.006 sec  <<< ERROR!
 java.lang.ArithmeticException: / by zero
+ Easy mock error message here,
+ and here.
 	at test.AppTest.testApp(AppTest.java:35)
 testApp1(test.AppTest)  Time elapsed: 0 sec  <<< FAILURE!
 junit.framework.AssertionFailedError: Rigourous Test1. expected:<1> but was:<2>

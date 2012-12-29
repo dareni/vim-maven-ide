@@ -1,4 +1,4 @@
-*maven-ide.txt*    For Vim version 7.x. Last Change: Sun Dec 23 18:23:47 EST 2012
+*maven-ide.txt*    For Vim version 7.x. Last Change: Sat Dec 29 15:54:04 EST 2012
 
     Plugin for managing java maven projects.
     Version 0.6
@@ -27,7 +27,7 @@ Features include:
     o Project tree for file navigation and environment context management.
     o Quickfix for output of maven plugins compile,junit,checkstyle.
     o Optional single source file compilation directly with javac.
-    o Compilation is background via AsyncCommand.
+    o Compilation is background via |AsyncCommand|.
     o Debug using yavdb, allows debug of class main or attach to jvm debug
        port.
     o Allow attach to a debug process on a remote host.
@@ -43,8 +43,6 @@ Features include:
     o Autocomplete on methods, auto add of imports etc is via the vjde plugin
       project.
     o Auto build of javadoc from source when it does not exist.
-
-
 
 ==============================================================================
 DEPENDENCIES                        *maven-ide-depends*
@@ -89,7 +87,7 @@ LIMITATIONS                         *maven-ide-limits*
       maven command.
     o Changes to the pom.xml are not automatically processed and must be
       manually processed with \rp.
-    o The maven compiler version is fixed at 2.5. The compiler error output
+    o The maven compiler version is fixed at 2.5.1. The compiler error output
       format changes across compiler version and maven version; for error
       processing simplicity the compiler version is fixed.
     o Junit functionality is coded to v3.8 and v4.11. The junit version
@@ -122,7 +120,7 @@ VIM PLUGIN DEPENDENCIES
         o http://www.vim.org/scripts/script.php?script_id=1954
         o mkdir ~/.vim/bundle/yavdb
         o copy yavdb and yavdb.vim into ~/.vim/bundle/yavdb
-    o Install AsyncCommand in ~/.vim/bundle/asynccommand
+    o Install|AsyncCommand|in ~/.vim/bundle/asynccommand
         o http://www.vim.org/scripts/script.php?script_id=3431
         o :helptags ~/.vim/bundle/asynccommand/doc
     o Install vjde in ~/.vim/bundle/vjde.
@@ -182,18 +180,18 @@ g:mvn_debugPortList                 *mvn_debugPortList*
 
 g:mvn_pluginList                    *mvn_pluginList*
     - maven output processor modules.
-        o Mvn3Plugin maven3, compiler 2.5.
-        o Mvn2Plugin maven2, compiler 2.5.
+        o Mvn3Plugin maven3, compiler 2.5.1
+        o Mvn2Plugin maven2, compiler 2.5.1
         o Junit3Plugin junit 3.8.2
         o CheckStyle22Plugin  CheckStyle 2.2
     These plugins parse the output errors to a quickfix list: >
     let g:mvn_pluginList = ['Mvn3Plugin', 'Junit3Plugin', 'CheckStyle22Plugin']
 
 g:mvn_compilerVersion               *mvn_compilerVersion*
-    -maven compiler version (currently only the output from 2.5 is supported).
+    -maven compiler version (currently only the output from 2.5.1 is supported).
     Different versions of the compiler produce differing output across the
     different maven versions so standardize on a compiler version: >
-    let g:mvn_compilerVersion = '2.5'
+    let g:mvn_compilerVersion = '2.5.1'
 
 ==============================================================================
 QUICKSTART                          *maven-ide-quickstart*
@@ -249,6 +247,8 @@ for use. In the project tree use :e to refresh any tree changes.
 ==============================================================================
 MAPPINGS                            *maven-ide-mappings*
 
+Ordered by Context, Mapping.
+
 Map    Function                      Context~
 
 \ce *MvnCreateEnvSelection()*        project buffer
@@ -292,9 +292,22 @@ the new source in the project environment.
 A prompt is given to enter a classname for search. The search is across all
 jar files in the maven .m2 repository.
 
+\so *MvnShowMavenOutput()*           project or source buffer 
+Display the output of the last maven execution.
+
+\mo *MvnSetOffline*                  project or source buffer
+Toggle maven offline execution.
+
+\pc *MvnPrintCodes()*                project or source buffer
+Print a table of ascii codes, the buffer needs 30 rows. Close with :bd!. 
+
 \rm *MvnCompile()*                   project or source buffer
 Compile current maven project (mvn clean install). The Apache Maven compiler
 plugin version is fixed by|mvn_compilerVersion|setting.
+
+\sd *MvnOpenJavaDoc()*               project or source buffer
+Open in lynx the javadoc for the classname under the cursor. The full
+class name is determined using|vjde|.
 
 \cf *MvnMvnCodeFormat()*             source buffer
 Remove end of line spaces.
@@ -312,11 +325,7 @@ Run debug on the current main or junit test source file or connect to a
 preexisting debug process by port.
 
 \rt *MvnRunJunit()*                  source buffer
-Run the current junit source file, with quickfix for errors.
-
-\sd *MvnOpenJavaDoc()*               project or source buffer
-Open in lynx the javadoc for the classname under the cursor. The full
-class name is determined using|vjde|.
+Run the tests for the current junit source file, with quickfix for errors.
 
 \bt *MvnTagCurrentFile()*            source buffer
 Update the tags for the current file.
@@ -331,26 +340,26 @@ Pick from the list of the previous MvnFindInherits() search.
 \gt *MvnJumpToTree()*                source buffer
 Jump to the position in the tree for the current file.
 
-\pc *MvnPrintCodes()*                project or source buffer
-Print a table of ascii codes, the buffer needs 30 rows.
-
 ==============================================================================
 NOTES                               *maven-ide-notes*
 
-Plugin yavdb uses <C-F5> for the debugger run command. The control-function
-keys may require mapping ie
-
+o Plugin yavdb uses <C-F5> for the debugger run command. The control-function
+  keys may require mapping ie >
     map ^[[15;5~ <C-F5>
 
-To display key data use:
+o To display key data use >
     set showcmd
 
-For javascript manually generate the tag file to the project home ie in
-the project home run:
+o For javascript manually generate the tag file to the project home ie in
+  the project home run >
     jsctags `pwd`/src/main/webapp/script/ext-js -f tags-script
-
-Remove \r from the end of the lines in the tag file:
+<
+  Remove \r from the end of the lines in the tag file >
     :%s/\\r$\/;/$\/;
+
+o Without the vim --servername switch: 
+    o debugging is not possible
+    o background processes via|AsyncCommand|are foreground.
 
 ==============================================================================
 BUGS                                *maven-ide-bugs*

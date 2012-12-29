@@ -69,6 +69,8 @@ Running com.encompass.domain.inventory.InventoryUtilsTest
 Tests run: 3, Failures: 2, Errors: 1, Skipped: 0, Time elapsed: 0.515 sec <<< FAILURE!
 testComposeCompoundInventory(com.encompass.domain.inventory.InventoryUtilsTest)  Time elapsed: 0.041 sec  <<< FAILURE!
 junit.framework.AssertionFailedError
+ Easy mock error message here,
+ and here.
 	at junit.framework.Assert.fail(Assert.java:55)
 	at junit.framework.Assert.assertTrue(Assert.java:22)
 	at junit.framework.Assert.assertTrue(Assert.java:31)

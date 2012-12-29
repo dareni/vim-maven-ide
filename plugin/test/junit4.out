@@ -4,6 +4,8 @@ Time: 0.076
 There were 3 failures:
 1) testComposeCompoundInventory(com.encompass.domain.inventory.InventoryUtilsTest)
 junit.framework.AssertionFailedError: null
+ EasyMock error here,
+ and here.
 	at junit.framework.Assert.fail(Assert.java:47)
 	at junit.framework.Assert.assertTrue(Assert.java:20)
 	at junit.framework.Assert.assertTrue(Assert.java:27)

@@ -2,6 +2,8 @@
 Time: 0.049
 There was 1 error:
 1) testApp(test.AppTest)java.lang.ArithmeticException: / by zero
+ EasyMock error here,
+ and here.
 	at test.AppTest.testApp(AppTest.java:36)
 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
