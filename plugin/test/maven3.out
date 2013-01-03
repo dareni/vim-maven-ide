@@ -17,6 +17,7 @@
 [ERROR] COMPILATION ERROR : 
 [INFO] -------------------------------------------------------------
 [ERROR] /opt/dev/NetBeansProjects/test/src/main/java/test/App.java:[9,1] <identifier> expected
+ more error message here!
 [INFO] 1 error
 [INFO] -------------------------------------------------------------
 [INFO] ------------------------------------------------------------------------

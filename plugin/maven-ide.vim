@@ -1268,7 +1268,19 @@ function! s:Mvn3Plugin.processErrors() "{{{ processErrors
                 let l:posEnd = match(l:line, ']', l:posStart)
                 let l:errorColNo = strpart(l:line, l:posStart, l:posEnd-l:posStart)
                 let l:posStart = l:posEnd + 2
+
+                "Get the multi line error message.
+                let messageCtr = l:lineNo
+                let l:messageEnd = 0
                 let l:message = strpart(l:line, l:posStart)
+                while l:messageEnd == 0
+                    let l:messageCtr += 1
+                    if match(self._mvnOutputList[messageCtr], '^[') == -1
+                        let l:message .= ' '.self._mvnOutputList[messageCtr]
+                    else
+                        let l:messageEnd = 1
+                    endif
+                endwhile
 
                 let l:fixDict = {'bufnr': '', 'filename': l:filename,
                     \'lnum': l:errorLineNo, 'pattern': '', 'col': l:errorColNo,
@@ -1303,7 +1315,7 @@ function! s:JunitPlugin.processJunitOutput(outputData)
     "Process the output when the test class is run directly ie not under maven.
     "see getqflist()
     throw "Add maven-ide JunitPlugin processing code to the subclass."
-endfunction 
+endfunction
 function! s:JunitPlugin.processJunitOutput(outputData) "{{{ processJunitOutput
     let l:quickfixList = []
     let l:ctr = 0
@@ -2616,10 +2628,10 @@ function! s:TestMvn3Plugin(testR) "{{{ TestMvn3Plugin
     let l:mvn3Plugin = s:Mvn3Plugin.New()
     call l:mvn3Plugin.setOutputList(l:testList)
     let l:errorsDict = l:mvn3Plugin.processAtLine(16)
-    call a:testR.AssertEquals('mvn3 lineNumber in compiler output:', 19, l:errorsDict.lineNumber)
+    call a:testR.AssertEquals('mvn3 lineNumber in compiler output:', 20, l:errorsDict.lineNumber)
     call a:testR.AssertEquals('mvn3 Source file rowNum:', 9, l:errorsDict.quickfixList[0].lnum)
     call a:testR.AssertEquals('mvn3 Source file colNum:', 1, l:errorsDict.quickfixList[0].col)
-    call a:testR.AssertEquals('mvn3 Error message::', '<identifier> expected', l:errorsDict.quickfixList[0].text)
+    call a:testR.AssertEquals('mvn3 Error message::', '<identifier> expected  more error message here!', l:errorsDict.quickfixList[0].text)
     let l:errorsDict = l:mvn3Plugin.processAtLine(17)
     call a:testR.AssertEquals('mvn3 lineNumber in compiler output:', 17, l:errorsDict.lineNumber)
     call a:testR.AssertEquals('mvn3 quickfix list size:', 0, len(l:errorsDict.quickfixList))
@@ -2710,7 +2722,7 @@ function! s:TestJunit4Plugin(testR) "{{{ TestJunit4Plugin
         \'and here.', l:quickfixList[2].text)
     let l:pos = match(l:quickfixList[2].filename, '/plugin/')
     call a:testR.AssertEquals('junit4 file::',
-        \'/plugin/test/com/encompass/domain/inventory/InventoryUtilsTest.java',
+        \'plugin/test/com/encompass/domain/inventory/InventoryUtilsTest.java',
         \strpart(l:quickfixList[2].filename, l:pos))
 endfunction "}}} Testjunit4Plugin
 function! s:TestCheckStyle22Plugin(testR) "{{{ TestCheckStyle22Plugin
