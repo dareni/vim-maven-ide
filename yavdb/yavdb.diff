@@ -1,6 +1,6 @@
-diff -Naur /home/tester/vim/yavdb/yavdb ../../yavdb//yavdb
---- /home/tester/vim/yavdb/yavdb	2007-07-14 08:27:00.000000000 +1000
-+++ ../../yavdb//yavdb	2012-10-11 19:03:47.000000000 +1000
+diff -Naur /home/daren/vim/yavdb/yavdb ../../yavdb/yavdb
+--- /home/daren/vim/yavdb/yavdb	2013-01-13 19:47:19.000000000 +1000
++++ ../../yavdb/yavdb	2013-01-10 20:56:29.000000000 +1000
 @@ -55,51 +55,61 @@
      #end def parseLineGDB
  
@@ -10,18 +10,19 @@ diff -Naur /home/tester/vim/yavdb/yavdb ../../yavdb//yavdb
 -        m4 = re.search('Removed: breakpoint ([A-Za-z0-9]+):([0-9]+)$', line)
 -        m3 = re.match('Breakpoint hit: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
 -        m5 = re.search('Step completed: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
-+        m1 = re.search('Set deferred breakpoint ([A-Za-z0-9.]+):([0-9]+)', line)
-+        m2 = re.search('Set breakpoint ([A-Za-z0-9.]+):([0-9]+)$', line)
-+        m4 = re.search('Removed: breakpoint ([A-Za-z0-9.]+):([0-9]+)$', line)
++        m1 = re.search('Set deferred breakpoint ([A-Za-z0-9.]+):([,0-9]+)', line)
++        m2 = re.search('Set breakpoint ([A-Za-z0-9.]+):([,0-9]+)$', line)
++        m4 = re.search('Removed: breakpoint ([A-Za-z0-9.]+):([,0-9]+)$', line)
 +#m3 = re.match('Breakpoint hit: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
-+        m3 = re.match('Breakpoint hit: "thread=([A-Za-z0-9.-]+)", ([A-Za-z0-9<>().]+), line=([0-9]+) bci=([0-9]+)', line)
++        m3 = re.match('Breakpoint hit: "thread=([A-Za-z0-9.-]+)", ([A-Za-z0-9<>().]+), line=([,0-9]+) bci=([0-9]+)', line)
 +#m5 = re.search('Step completed: "thread=([A-Za-z0-9]+)", ([A-Za-z0-9<>()]+).([A-Za-z0-9<>]+\([^)]*\)), line=([0-9]+) bci=([0-9]+)', line)
-+        m5 = re.search('Step completed:[ a-zA-Z0-9[\]]* "thread=([A-Za-z0-9.-]+)", ([A-Za-z0-9<>().$-]+), line=([0-9]+) bci=([0-9]+)', line)
++        m5 = re.search('Step completed:[ a-zA-Z0-9[\]]* "thread=([A-Za-z0-9.-]+)", ([A-Za-z0-9<>().$-]+), line=([,0-9]+) bci=([0-9]+)', line)
  
          if m1:
 -            print 'Breakpoint Set Detected:', m1.groups()
-             curLine  = m1.group(2)
+-            curLine  = m1.group(2)
 -            filename = m1.group(1) + ".java"
++            curLine  = m1.group(2).replace(',', '')
 +            filename = self.getJavaFilename(m1.group(1))
              self.toVim('VDBBreakSet(%s, \\"%s\\", %s)' % (
                      curLine,
@@ -30,8 +31,9 @@ diff -Naur /home/tester/vim/yavdb/yavdb ../../yavdb//yavdb
 +            print 'yavdb: Breakpoint1 Set Detected:', filename, ' line:', curLine
          elif m2:
 -            print 'Breakpoint Set Detected:', m2.groups()
-             curLine  = m2.group(2)
+-            curLine  = m2.group(2)
 -            filename = m2.group(1) + ".java"
++            curLine  = m2.group(2).replace(',', '')
 +            filename = self.getJavaFilename(m2.group(1))
              self.toVim('VDBBreakSet(%s, \\"%s\\", %s)' % (
                      curLine,
@@ -40,8 +42,9 @@ diff -Naur /home/tester/vim/yavdb/yavdb ../../yavdb//yavdb
 +            print 'yavdb: Breakpoint2 Set Detected:', filename, ' line:', curLine
          elif m4:
 -            print 'Breakpoint Clear Detected:', m4.groups()
-             curLine  = m4.group(2)
+-            curLine  = m4.group(2)
 -            filename = m4.group(1) + ".java"
++            curLine  = m4.group(2).replace(',', '')
 +            filename = self.getJavaFilename(m4.group(1))
              self.toVim('VDBBreakClear(%s, \\"%s\\")' % (
                      curLine,
@@ -50,7 +53,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb ../../yavdb//yavdb
          elif m3:
 -            curLine  = m3.group(4)
 -            filename = m3.group(2) + ".java"
-+            curLine  = m3.group(3)
++            curLine  = m3.group(3).replace(',', '')
 +            filename = self.getJavaFilename(m3.group(2))
              self.toVim('VDBHighlightLine(%s, \\"%s\\")' % (
                      curLine,
@@ -60,7 +63,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb ../../yavdb//yavdb
          elif m5:
 -            curLine  = m5.group(4)
 -            filename = m5.group(2) + ".java"
-+            curLine  = m5.group(3)
++            curLine  = m5.group(3).replace(',', '')
 +            filename = self.getJavaFilename(m5.group(2))
              self.toVim('VDBHighlightLine(%s, \\"%s\\")' % (
                      curLine,
@@ -80,10 +83,10 @@ diff -Naur /home/tester/vim/yavdb/yavdb ../../yavdb//yavdb
      def createCmdPipe(self):
          os.mkfifo('.%s' % self.servername, 0600)
      #end def createCmdPipe
-diff -Naur /home/tester/vim/yavdb/yavdb.txt ../../yavdb//yavdb.txt
---- /home/tester/vim/yavdb/yavdb.txt	1970-01-01 10:00:00.000000000 +1000
-+++ ../../yavdb//yavdb.txt	2012-10-13 19:46:34.000000000 +1000
-@@ -0,0 +1,41 @@
+diff -Naur /home/daren/vim/yavdb/yavdb.txt ../../yavdb/yavdb.txt
+--- /home/daren/vim/yavdb/yavdb.txt	1970-01-01 10:00:00.000000000 +1000
++++ ../../yavdb/yavdb.txt	2012-12-23 20:50:03.000000000 +1000
+@@ -0,0 +1,71 @@
 +*yavdb.txt*
 +This is a generic Vim <->Debugger Interface Tool designed to be adaptable to
 +any debugger application.  Currently supported debuggers include jdb and gdb.
@@ -125,9 +128,39 @@ diff -Naur /home/tester/vim/yavdb/yavdb.txt ../../yavdb//yavdb.txt
 +  Run|helptags|.
 +
 +vim:ts=4 sw=4 noexpandtab tw=78 ft=help:
-diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
---- /home/tester/vim/yavdb/yavdb.vim	2007-07-14 08:26:35.000000000 +1000
-+++ ../../yavdb//yavdb.vim	2012-10-17 13:45:27.000000000 +1000
++This is a generic Vim <->Debugger Interface Tool designed to be adaptable to any debugger application.  Currently supported debuggers include jdb and gdb.
++
++Script Requirements:
++-VIM compiled with Signs, Client-Server, and Python support.
++-Python 2.5
++-An operating system with support for named pipes
++
++Using YAVDB:
++
++  yavdb [-s servername] [-t type] <debugger command line>
++
++  -s specifies the Vim servername.  If no VIM (or GVIM) window exists with this servername, a new GVIM window will be opened.  If not specified, the servername 'VimDebugger' will be used.  If multiple applications are being debugged simultaneously unique servernames must be used.
++
++  -t can be used to override the debugger type.  If this option is omitted the debugger name will be used as the type.  Currently supported debugger types include 'gdb' and 'jdb'.  Note that jdb will only correctly notify VIM of events when classnames are identical to filenames (other than the .java extension).
++
++  VIM will have the following key mappings set:
++
++  <C-F5> Run Application
++  <F5> Continue Execution
++  <F7> Step Into a Function
++  <F8> Next Instruction
++  <F9> Set Breakpoint
++  <F10> Print variable value under cursor
++   
++  install details
++  Place the file yavdb.vim in your plugins directory.
++  Place the file yavdb on in a directory on your path.
++   
++
++
+diff -Naur /home/daren/vim/yavdb/yavdb.vim ../../yavdb/yavdb.vim
+--- /home/daren/vim/yavdb/yavdb.vim	2013-01-13 19:47:19.000000000 +1000
++++ ../../yavdb/yavdb.vim	2012-12-27 20:26:49.000000000 +1000
 @@ -8,8 +8,8 @@
  highlight DebugBreak guibg=darkred    guifg=white ctermbg=darkred    ctermfg=white
  highlight DebugStop  guibg=darkblue   guifg=white ctermbg=darkblue   ctermfg=white
@@ -157,7 +190,7 @@ diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
 @@ -46,19 +43,23 @@
      let s:connected=0
  endfunction
-
+ 
 +function! VDBIsConnected()
 +    return s:connected
 +endfunction
@@ -232,10 +265,10 @@ diff -Naur /home/tester/vim/yavdb/yavdb.vim ../../yavdb//yavdb.vim
 -    call VDBJumpToLine(a:line, a:file)
 -    execute "sign unplace ". 1
 -    execute "sign place " .  1 ." name=current line=".a:line." file=".a:file
-+    try {
++    try
 +        let l:foundFile = VDBJumpToLine(a:line, a:file)
-+        execute "sign unplace ". 1
-+        execute "sign place " .  1 ." name=current line=".a:line." file=".l:foundFile
++        execute "sign unplace 1"
++        execute "sign place 1" ." name=current line=".a:line." file=".l:foundFile
 +    catch /file not found.*/
 +        echo "File ".a:file." not found."
 +    endtry

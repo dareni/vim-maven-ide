@@ -4,6 +4,9 @@
 
 mv ../../yavdb/plugin/yavdb.vim ../../yavdb
 mv ../../yavdb/doc/yavdb.txt ../../yavdb
+if [ -e ../../yavdb/plugin/tags ]; then
+    rm ../../yavdb/plugin/tags
+fi
 if [ -e ../../yavdb/doc/tags ]; then
     rm ../../yavdb/doc/tags
 fi
