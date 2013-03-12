@@ -212,8 +212,10 @@ In vim invoke the|project|plugin:
 
 Create the maven project tree in the left window by invoking
 |MvnInsertProjectTree()|(mapped to \bp). The 3 key sequence must be
-entered quickly (see|map.txt|timeout|leader|). A prompt will ask for the project
-path of an existing maven project:
+entered quickly (see|map.txt|timeout|leader|). This step also registers the
+project for use by other dependant projects, so do this for all projects,
+certainly before running \ce for dependant projects. A prompt will ask
+for the project path of an existing maven project:
     \bp
 
 A|:fold|should now exist for the maven project containing the directory
@@ -292,14 +294,14 @@ the new source in the project environment.
 A prompt is given to enter a classname for search. The search is across all
 jar files in the maven .m2 repository.
 
-\so *MvnShowMavenOutput()*           project or source buffer 
+\so *MvnShowMavenOutput()*           project or source buffer
 Display the output of the last maven execution.
 
 \mo *MvnSetOffline*                  project or source buffer
 Toggle maven offline execution.
 
 \pc *MvnPrintCodes()*                project or source buffer
-Print a table of ascii codes, the buffer needs 30 rows. Close with :bd!. 
+Print a table of ascii codes, the buffer needs 30 rows. Close with :bd!.
 
 \rm *MvnCompile()*                   project or source buffer
 Compile current maven project (mvn clean install). The Apache Maven compiler
@@ -357,7 +359,7 @@ o For javascript manually generate the tag file to the project home ie in
   Remove \r from the end of the lines in the tag file >
     :%s/\\r$\/;/$\/;
 
-o Without the vim --servername switch: 
+o Without the vim --servername switch:
     o debugging is not possible
     o background processes via|AsyncCommand|are foreground.
 

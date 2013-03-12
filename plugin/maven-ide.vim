@@ -226,6 +226,8 @@ function! MvnGetPrjPomDict(projectHomePath, prjIdPomDict, refresh) "{{{
     endif
     if has_key(l:prjPomDict, 'created') && a:refresh == 0
         if l:prjPomDict['created'] > getftime(a:projectHomePath.'/pom.xml')
+            \ && l:prjPomDict['id'] != '0:0:0'
+            "when xpath does not exist the id becomes 0:0:0
             let l:doRecreate = 0
         endif
     endif
@@ -3198,6 +3200,7 @@ function! s:TestDependencies(dummy) "{{{
     call s:TestExecutable('find')
     call s:TestExecutable('yavdb')
     call s:TestExecutable('ex')
+    call s:TestExecutable(s:mvn_tagprg)
     let l:xpathSuccess= system('perl -MXML::XPath -e 1')
     if len(l:xpathSuccess) > 0
         throw 'No perl XML::XPath module. Check maven-ide installation instructions.'
