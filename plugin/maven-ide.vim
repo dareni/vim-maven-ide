@@ -3322,6 +3322,9 @@ function! MvnCodeFormat() "{{{
     let save_cursor = getpos(".")
     "Remove all end of line spaces.
     :1,$:s/ \+$//g
+    "Replace all tabs with spaces.
+    let l:ts_spaces = &tabstop
+    exec ':1,$:s/\t/' . repeat(' ', l:ts_spaces) . '/g'
     call setpos('.', save_cursor)
 endfunction; "}}} body }}}
 function! MvnPrintCodes() "{{{
