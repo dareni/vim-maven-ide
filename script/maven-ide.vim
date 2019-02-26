@@ -1,8 +1,8 @@
 "=============================================================================
 " File:        maven-ide.vim
 " Author:      Daren Isaacs (ikkyisaacs at gmail.com)
-" Last Change: Sat Dec 29 15:54:33 EST 2012
-" Version:     0.6
+" Last Change: Tue Feb 26 21:44:33 EST 2019
+" Version:     0.7
 "=============================================================================
 " See documentation in accompanying help file.
 " You may use this code in whatever way you see fit.
@@ -499,19 +499,10 @@ function! MvnCreatePomDict(mvnData, projectHome, prjPomDict) "{{{
     let l:pomDict = a:prjPomDict
     let l:pomDict['created'] = localtime()
     let l:pomDict['home'] = a:projectHome
-    let l:classpath = MvnBuildRunClassPath(a:mvnData)
+    let l:classpath = g:mvn_DependencyPlugin.buildRunClassPath(a:mvnData)
     let l:pomDict = MvnUpdateDict(l:pomDict, 'classpath', l:classpath)
 
-    let l:effectivePom = a:mvnData
-    let l:effectivePom = MvnTrimStringPre(l:effectivePom, "<project ")
-    let l:effectivePom = MvnTrimStringPost(l:effectivePom, "</project>")
-    if len(l:effectivePom) == 0
-        throw "Maven command failed for project ".a:projectHome. " command: ".
-        \s:mvnCmd
-    endif
-    let l:effectivePom = substitute(l:effectivePom, "\n", "", "g")
-    let l:pomFilename = s:mvn_tmpdir."/effective-pom.xml"
-    call writefile([l:effectivePom], l:pomFilename)
+    let l:pomFilename = g:mvn_HelpPlugin.getEffectivePom(a:mvnData, a:projectHome)
     "project pom id query
     let l:pomDict['id'] = MvnGetPomId(l:pomFilename)
     "dependency query
@@ -543,7 +534,7 @@ function! MvnCreatePomDict(mvnData, projectHome, prjPomDict) "{{{
         \l:pomFilename)
     call delete(s:mvn_tmpdir."/effective-pom.xml")
     let l:pomDict = MvnDefaultDictConfigurables(l:pomDict)
-    if len(l:warningList) > 0
+    if len(l:warningList) > 0 && s:mvn_inUnitTest == 0
         echo join(l:warningList, ' ')
     endif
     return l:pomDict
@@ -558,7 +549,7 @@ function! MvnAddElementToPomDict(pomDict, warnList,
     if len(l:tmpPathList) > 0
         let l:pomDict = MvnUpdateDict(a:pomDict, a:key, l:tmpPathList)
     else
-        call add(a:warnList, a:pomDict['home'].' contains no key of '.a:key.'.')
+        call add(a:warnList, 'Warning: '.a:pomDict['home'].' contains no key of '.a:key.'.')
     endif
 endfunction; "}}} MvnAddElementToPomDict
 
@@ -678,6 +669,91 @@ endfunction; "}}} 3 }}} 2
 "}}} Project ------------------------------------------------------------------
 
 "{{{ Environment config -------------------------------------------------------
+"Use objects to interface with the differing maven plugin versions.
+let s:MvnDependencyPlugin = {} "{{{ mavenDependencyPlugin
+function! s:MvnDependencyPlugin.New()
+    let l:newMvnPlugin = copy(self)
+    return l:newMvnPlugin
+endfunction
+function! s:MvnDependencyPlugin.getVersion()
+    throw "Version not set for dependency plugin."
+endfunction
+function! s:MvnDependencyPlugin.buildRunClassPath(mvnData)
+"Old MvnBuildRunClassPath
+"Create the classpath from the maven project.
+"return - the maven classpath
+    let l:mavenClasspathOutput = a:mvnData
+    let l:pos = matchend(l:mavenClasspathOutput, 'Dependencies classpath:')
+    let l:clpath = ""
+    if l:pos != -1
+        let l:endPos = match(l:mavenClasspathOutput, '\[INFO\]', l:pos)
+        "let l:clpath = matchstr(l:mavenClasspathOutput, "\\p\\+", l:pos)
+        let l:clpath = strpart(l:mavenClasspathOutput, l:pos, l:endPos-l:pos)
+        let l:clpath = substitute(l:clpath, '\n', '', 'g')
+    else
+        throw "MvnBuildRunClassPath():Failed on mvn dependency:build-classpath.".l:pos
+    endif
+    return l:clpath
+endfunction
+let s:MvnDependency311Plugin = {}
+function! s:MvnDependency311Plugin.New()
+   let this = copy(self)
+   let super = s:MvnDependencyPlugin.New()
+   call extend(this, deepcopy(super), "keep")
+   return this
+endfunction
+function! s:MvnDependency311Plugin.getVersion()
+    return '3.1.1'
+endfunction
+"}}} mavenDependencyPlugin
+
+let s:MvnHelpPlugin = {} "{{{ mavenHelpPlugin
+function! s:MvnHelpPlugin.New()
+    let l:newMvnPlugin = copy(self)
+    return l:newMvnPlugin
+endfunction
+function! s:MvnHelpPlugin.getVersion()
+    throw "Version not set for help plugin."
+endfunction
+function! s:MvnHelpPlugin.getEffectivePom(mvnData, projectHome)
+    throw "Method: getEffectivePom not implemented for this plugin."
+endfunc
+let s:MvnHelp311Plugin = {}
+function! s:MvnHelp311Plugin.New()
+   let this = copy(self)
+   let super = s:MvnHelpPlugin.New()
+   call extend(this, deepcopy(super), "keep")
+   return this
+endfunction
+function! s:MvnHelp311Plugin.getVersion()
+    return '3.1.1'
+endfunction
+function! s:MvnHelp311Plugin.getEffectivePom(mvnData, projectHome)
+    let l:effectivePom = a:mvnData
+    let l:effectivePom = MvnTrimStringPre(l:effectivePom, "<projects")
+    if len(l:effectivePom) == 0
+        "Not a parent project.
+        let l:effectivePom = a:mvnData
+        let l:effectivePom = MvnTrimStringPre(l:effectivePom, "<project ")
+        let l:effectivePom = MvnTrimStringPost(l:effectivePom, "</project>")
+    else
+        let l:effectivePom = MvnTrimStringPost(l:effectivePom, "</projects>")
+        "Get the parent project ie the last <project> element.
+        let l:query = "/projects/project[last\(\)]"
+        let l:effectivePom = get(MvnGetXPathFromTxt(l:effectivePom, l:query), 2)
+    endif
+    if len(l:effectivePom) == 0
+        throw "Possible effective-pom format alteration. Maven command failed for project ".
+        \a:projectHome." command: ".s:mvnCmd
+    endif
+    let l:effectivePom = substitute(l:effectivePom, "\n", "", "g")
+    let l:pomFilename = s:mvn_tmpdir."/effective-pom.xml"
+    call writefile([l:effectivePom], l:pomFilename)
+    return l:pomFilename
+endfunction
+" }}} mavenHelpPlugin
+
+
 function! MvnRefreshPrjIdPomDict() "{{{
 "Refresh the prjPomDict for each selected project(s).
 "{{{ body
@@ -1029,23 +1105,6 @@ function! MvnGetJreRuntimeLib() "{{{
     let l:jreLib = matchstr(l:javaOP, "Opened \\p\\+")
     let l:jreLib = matchstr(l:jreLib, "/.\\+jar")
     return l:jreLib
-endfunction; "}}}
-
-function! MvnBuildRunClassPath(mvnData) "{{{
-"Create the classpath from the maven project.
-"return - the maven classpath
-    let l:mavenClasspathOutput = a:mvnData
-    let l:pos = matchend(l:mavenClasspathOutput, 'Dependencies classpath:')
-    let l:clpath = ""
-    if l:pos != -1
-        let l:endPos = match(l:mavenClasspathOutput, '\[INFO\]', l:pos)
-        "let l:clpath = matchstr(l:mavenClasspathOutput, "\\p\\+", l:pos)
-        let l:clpath = strpart(l:mavenClasspathOutput, l:pos, l:endPos-l:pos)
-        let l:clpath = substitute(l:clpath, '\n', '', 'g')
-    else
-        throw "MvnBuildRunClassPath():Failed on mvn dependency:build-classpath.".l:pos
-    endif
-    return l:clpath
 endfunction; "}}}
 
 function! MvnExecuteFile(filename) "{{{
@@ -2147,7 +2206,7 @@ endfunction; "}}}
 function! MvnDownloadJavadoc() "{{{
 "Download the javadoc using maven for the current project.
     let l:cmd = "mvn org.apache.maven.plugins:"
-    let l:cmd .= "maven-dependency-plugin:2.1:"
+    let l:cmd .= "maven-dependency-plugin:".s:mvn_dependencyPluginVersion.":"
     let l:cmd .= "resolve -Dclassifier=javadoc"
     echo system(l:cmd)
 endfunction; "}}}
@@ -2155,7 +2214,7 @@ endfunction; "}}}
 function! MvnDownloadJavaSource() "{{{
 "Download the dependency source using maven for the current project.
     let l:cmd = "mvn org.apache.maven.plugins:"
-    let l:cmd .= "maven-dependency-plugin:2.1:"
+    let l:cmd .= "maven-dependency-plugin:".s:mvn_dependencyPluginVersion.":"
     let l:cmd .= "sources"
     echo system(l:cmd)
 endfunction; "}}}
@@ -2722,9 +2781,9 @@ function! s:TestJunit4Plugin(testR) "{{{ TestJunit4Plugin
         \'1) testComposeCompoundInventory(com.encompass.domain.inventory.InventoryUtilsTest)'.
         \'junit.framework.AssertionFailedError: null EasyMock error here, '.
         \'and here.', l:quickfixList[2].text)
-    let l:pos = match(l:quickfixList[2].filename, '/plugin/')
+    let l:pos = match(l:quickfixList[2].filename, 'test/com/encompass/')
     call a:testR.AssertEquals('junit4 file::',
-        \'plugin/test/com/encompass/domain/inventory/InventoryUtilsTest.java',
+        \'test/com/encompass/domain/inventory/InventoryUtilsTest.java',
         \strpart(l:quickfixList[2].filename, l:pos))
 endfunction "}}} Testjunit4Plugin
 function! s:TestCheckStyle22Plugin(testR) "{{{ TestCheckStyle22Plugin
@@ -2884,7 +2943,7 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
         let l:effectiveSettingsFile = s:mvn_tmpdir."/effective-settings.xml"
         let l:effectiveSettings = system("cd ".l:testHome."; "
             \."mvn org.apache.maven.plugins:maven-help-plugin:"
-            \."2.1.1:effective-settings")
+            \.s:mvn_helpPluginVersion.":effective-settings")
         let l:effectiveSettings = MvnTrimStringPre(l:effectiveSettings, "<settings ")
         let l:effectiveSettings = MvnTrimStringPost(l:effectiveSettings, "</settings>")
         let l:effectiveSettings = substitute(l:effectiveSettings, "\n", "", "g")
@@ -2897,10 +2956,10 @@ function! s:TestEnvBuild(testR) "{{{ TestEnvBuild
             \!filereadable(l:mvnRepoDir.'/junit/junit/3.8.2/junit-3.8.2-sources.jar')
             "make sure the junit javadoc and source exists.
             let l:cmd = "cd ".l:testHome
-            let l:cmd .= "; mvn org.apache.maven.plugins:maven-dependency-plugin:2.1:"
-            let l:cmd .= "resolve -Dclassifier=javadoc"
-            let l:cmd .= " org.apache.maven.plugins:maven-dependency-plugin:2.1:"
-            let l:cmd .= "sources"
+            let l:cmd .= "; mvn org.apache.maven.plugins:maven-dependency-plugin:"
+            let l:cmd .= ":".s:mvn_dependencyPluginVersion.":resolve -Dclassifier=javadoc"
+            let l:cmd .= " org.apache.maven.plugins:maven-dependency-plugin:"
+            let l:cmd .= ":".s:mvn_dependencyPluginVersion.":sources"
             let l:output = system(l:cmd)
         endif
 
@@ -3205,7 +3264,7 @@ function! s:TestDependencies(dummy) "{{{
     if len(l:xpathSuccess) > 0
         throw 'No perl XML::XPath module. Check maven-ide installation instructions.'
     endif
-    if !has('python')
+    if !(has('python') || has('python3'))
         throw 'Require python feature. Run :version'
     endif
     if len($USER) == 0
@@ -3255,6 +3314,7 @@ function! s:TestTearDown() "{{{
     endif
 endfunction; "}}}
 function! MvnRunTests() "{{{ MvnRunTests
+    echo 'Running....'
     let s:mvn_inUnitTest = 1
     try
         let l:testR = s:TestRunner.New()
@@ -3426,8 +3486,20 @@ if !exists('g:mvn_pluginList')
     let g:mvn_pluginList = ['Mvn2Plugin', 'Junit3Plugin', 'CheckStyle22Plugin']
 endif
 if !exists('g:mvn_compilerVersion')
-    let g:mvn_compilerVersion = '2.5.1'
+    "let g:mvn_compilerVersion = '2.5.1'
+    let g:mvn_compilerVersion = '3.8.0'
 endif
+if !exists('g:mvn_HelpPlugin')
+    let g:mvn_HelpPlugin = s:MvnHelp311Plugin.New()
+endif
+if !exists('g:mvn_DependencyPlugin')
+    let g:mvn_DependencyPlugin = s:MvnDependency311Plugin.New()
+endif
+"let s:mvn_dependencyPluginVersion = '2.4'
+"let s:mvn_helpPluginVersion = '2.1'
+let s:mvn_dependencyPluginVersion = g:mvn_DependencyPlugin.getVersion()
+let s:mvn_helpPluginVersion = g:mvn_HelpPlugin.getVersion()
+
 "{{{ Private Variables --------------------------------------------------------
 "TODO remove this func?
 function! s:MvnDefaultPrjEnvVars()
@@ -3448,7 +3520,7 @@ call system("mkdir -p ".s:mvn_tmpdir)
 let s:mvn_defaultProject = ""
 let s:mvn_scriptFile = expand("<sfile>")
 let s:mvn_scriptDir = strpart(s:mvn_scriptFile, 0,
-        \ match(s:mvn_scriptFile, "/plugin/"))
+        \ match(s:mvn_scriptFile, "/script/"))
 let s:mvn_xpathcmd = "perl -w ".s:mvn_scriptDir.
         \"/bin/xpath.pl filename \"query\""
 let s:plugins = MvnPluginInit()
@@ -3464,8 +3536,9 @@ function! MvnSetOffline()
         echo 'Maven offline.'
     endif
     let s:mvnCmd = "mvn ".s:mvn_offline.
-        \" -fn org.apache.maven.plugins:maven-dependency-plugin:2.4:build-classpath".
-        \" org.apache.maven.plugins:maven-help-plugin:2.1.1:effective-pom"
+        \" -fn org.apache.maven.plugins:maven-dependency-plugin:".s:mvn_dependencyPluginVersion.
+        \":build-classpath"." org.apache.maven.plugins:maven-help-plugin:".
+        \s:mvn_helpPluginVersion . ":effective-pom"
 endfunction;
 call MvnSetOffline()
 "}}} Private Variables  -------------------------------------------------------

@@ -58,6 +58,7 @@ External Dependencies:
 
 Vim Project Dependencies:
     o Project by Aric Blumer: project navigation and environment management.
+      (:help project, :Project)
     o AsyncCommand: background compilation.
     o yavdb: debug.
     o javac.vim: the default javac vim compiler file.
@@ -320,7 +321,8 @@ saving alternative to running a maven compile. Requires class dependencies
 in the target directory. ie do \rm first.
 
 NOTE Compilations run in the background with|AsyncCommand|use <C-L> to
-refresh the screen, errors will display in a quickfix window.
+refresh the screen, errors will display in a quickfix window. Use :cc,
+:cn, :cp to navigate the quickfix list.
 
 \rd *MvnDoDebug()*                   source buffer
 Run debug on the current main or junit test source file or connect to a
@@ -368,6 +370,18 @@ BUGS                                *maven-ide-bugs*
 
 If possible recreate the bug in a unit test, see MvnRunTests(), before coding
 a fix.
+
+o maven-ide.txt debug tips.
+    o set verbose=9. see :help vbs
+    o use :so maven-ide.txt to reload the script source.
+    o to debug tests use:  :debug call MvnRunTests()
+        o n[ext], s[tep], c[ontinue], breaka[dd], breakd[el], breakl[ist], bt.
+        o break points do not break in script local functions (s:).
+    o use :message to view the message buffer.
+    o s: vars are script local, l: vars function local, g: global.
+    o list all loaded scripts :scriptnames.
+    o use MvnRunSingleTest(testFuncName) to debug individual tests.
+
 
 ==============================================================================
 
